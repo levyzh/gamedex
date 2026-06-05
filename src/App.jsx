@@ -1,57 +1,58 @@
 import { useState, useMemo } from "react";
 
-// ─── Global styles + fonts ────────────────────────────────────────────────────
+// ─── Global styles ──────────────────────────────────────────────────────────
 (() => {
   if (document.getElementById("gv-setup")) return;
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href =
-    "https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap";
-  document.head.appendChild(link);
   const style = document.createElement("style");
   style.id = "gv-setup";
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #080B14; }
-    input::placeholder, textarea::placeholder { color: #475569; }
-    select option { background: #0D1120; color: #F1F5F9; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
-    button { font-family: 'DM Sans', sans-serif; }
-    input, textarea, select { font-family: 'DM Sans', sans-serif; }
+    body { background: #0a0a0a; }
+    input::placeholder, textarea::placeholder { color: #777; }
+    select option { background: #fff; color: #111; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+    body, button, input, textarea, select { font-family: Verdana, Arial, Helvetica, sans-serif; }
   `;
   document.head.appendChild(style);
 })();
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
+// ─── MyAnimeList-style theme tokens ───────────────────────────────────────────
 const T = {
-  bg:       "#080B14",
-  surface:  "#0D1120",
-  card:     "#121826",
-  cardH:    "#18203a",
-  accent:   "#818CF8",
-  accentB:  "#6366F1",
-  accentDim:"rgba(99,102,241,0.12)",
-  text:     "#F1F5F9",
-  ts:       "#8B9BB4",
-  tm:       "#475569",
-  bord:     "rgba(255,255,255,0.07)",
-  bordH:    "rgba(255,255,255,0.15)",
-  green:    "#10B981",
-  amber:    "#F59E0B",
-  red:      "#EF4444",
-  gray:     "#64748B",
+  bg:        "#0a0a0a",
+  header:    "#000000",
+  nav:       "#2e51a2",
+  navActive: "#24417f",
+  panel:     "#161616",
+  panelHead: "#2e2e2e",
+  bar:       "#1f1f1f",
+  card:      "#141414",
+  border:    "#2a2a2a",
+  text:      "#e8e8e8",
+  meta:      "#a6a6a6",
+  metaDim:   "#7a7a7a",
+  link:      "#5b8fd6",
+  linkHover: "#83a9e6",
+  rank:      "#8c8c8c",
+  amber:     "#f0a830",
+  btn:       "#2b2b2b",
+  red:       "#e0604d",
+  green:     "#46a35e",
 };
 
-// ─── Status config ────────────────────────────────────────────────────────────
 const ST = {
-  playing:         { label: "Playing",       color: T.green,  bg: "rgba(16,185,129,0.12)"  },
-  completed:       { label: "Completed",     color: T.accent, bg: "rgba(129,140,248,0.12)" },
-  "on-hold":       { label: "On-Hold",       color: T.amber,  bg: "rgba(245,158,11,0.12)"  },
-  dropped:         { label: "Dropped",       color: T.red,    bg: "rgba(239,68,68,0.12)"   },
-  "plan-to-play":  { label: "Plan to Play",  color: T.gray,   bg: "rgba(100,116,139,0.12)" },
+  playing:        { label: "Playing",      color: "#46a35e" },
+  completed:      { label: "Completed",    color: "#5b8fd6" },
+  "on-hold":      { label: "On-Hold",      color: "#f0a830" },
+  dropped:        { label: "Dropped",      color: "#e0604d" },
+  "plan-to-play": { label: "Plan to Play", color: "#9a9a9a" },
 };
+
+const clamp2 = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
+const fmt = (n) => n.toLocaleString("en-US");
+const members = (g) => Math.round(g.score * 100000) - g.id * 1234 + 50000;
 
 // ─── Game data ────────────────────────────────────────────────────────────────
 const GAMES = [
@@ -68,166 +69,142 @@ const GAMES = [
   { id:11, title:"Ghost of Tsushima",          genre:["Action","Adventure"],    dev:"Sucker Punch",        year:2020, plat:["PS5"],                                score:9.0, cover:"linear-gradient(150deg,#180b00,#3a1800,#682a00)", desc:"Defend Tsushima island from a Mongol invasion as Jin Sakai, samurai-turned-ghost, in one of the most beautiful open worlds ever made." },
   { id:12, title:"Disco Elysium",              genre:["RPG","Indie"],           dev:"ZA/UM",               year:2019, plat:["PC","PS5","Xbox"],                    score:9.2, cover:"linear-gradient(150deg,#08131e,#102030,#183040)", desc:"A truly unique RPG: a detective with no memory navigates a ruined city. Every skill is a voice in your head. There is no combat—only choices." },
   { id:13, title:"Dark Souls III",             genre:["Action","RPG"],          dev:"FromSoftware",        year:2016, plat:["PC","PS5","Xbox"],                    score:9.1, cover:"linear-gradient(150deg,#080300,#1c0d00,#350000)", desc:"The culmination of the Dark Souls trilogy. Intricate level design, punishing but fair combat, and a haunting world on the brink of extinction." },
-  { id:14, title:"Monster Hunter: World",      genre:["Action","RPG"],          dev:"Capcom",              year:2018, plat:["PC","PS5","Xbox"],                    score:8.9, cover:"linear-gradient(150deg,#091300,#162800,#224000)", desc:"Hunt colossal monsters in a living ecosystem. Forge weapons and armor from your prey. An addictive loop of preparation, pursuit, and payoff." },
-  { id:15, title:"Horizon Forbidden West",     genre:["Action","Adventure"],    dev:"Guerrilla Games",     year:2022, plat:["PS5"],                                score:8.8, cover:"linear-gradient(150deg,#001816,#002e2a,#004840)", desc:"Aloy ventures into overgrown ruins of the American west, facing new machines and uncovering a world-threatening mystery in stunning open-world splendor." },
-  { id:16, title:"Final Fantasy XVI",          genre:["Action","RPG"],          dev:"Square Enix",         year:2023, plat:["PS5"],                                score:8.7, cover:"linear-gradient(150deg,#090016,#180035,#2a0055)", desc:"A dark, mature Final Fantasy. Clive Rosfield seeks revenge in a war-torn world where wielders of godlike power clash in breathtaking titan battles." },
-  { id:17, title:"Returnal",                   genre:["Action","Roguelike"],    dev:"Housemarque",         year:2021, plat:["PC","PS5"],                           score:8.8, cover:"linear-gradient(150deg,#00180c,#002c18,#004826)", desc:"Selene crash-lands on a hostile alien planet and is trapped in an eternal cycle of death and rebirth. A punishing but deeply rewarding roguelite." },
-  { id:18, title:"Marvel's Spider-Man 2",      genre:["Action","Adventure"],    dev:"Insomniac Games",     year:2023, plat:["PS5"],                                score:9.0, cover:"linear-gradient(150deg,#180000,#3a0000,#640000)", desc:"Peter Parker and Miles Morales face the Venom symbiote and iconic villains across an expanded, richly detailed New York City." },
-  { id:19, title:"Starfield",                  genre:["RPG","Shooter"],         dev:"Bethesda",            year:2023, plat:["PC","Xbox"],                           score:7.8, cover:"linear-gradient(150deg,#010108,#020220,#030335)", desc:"Bethesda's first new IP in 25+ years. Explore hundreds of planets, build ships, and unravel the mystery of ancient artifacts scattered across the galaxy." },
-  { id:20, title:"Stardew Valley",             genre:["Simulation","Indie"],    dev:"ConcernedApe",        year:2016, plat:["PC","PS5","Xbox","Nintendo Switch"], score:9.3, cover:"linear-gradient(150deg,#0c1e00,#1f3d00,#346600)", desc:"Leave city life behind and build the farm of your dreams. A lovingly crafted RPG with seasons, romance, fishing, and a surprisingly deep story." },
+  { id:14, title:"Portal 2",                   genre:["Puzzle","Platformer"],   dev:"Valve",               year:2011, plat:["PC","PS5","Xbox"],                    score:9.3, cover:"linear-gradient(150deg,#001220,#073555,#0a5a8c)", desc:"A first-person puzzle masterpiece with a razor-sharp script, inventive mechanics, and one of gaming's best co-op campaigns." },
+  { id:15, title:"Stardew Valley",             genre:["Simulation","Indie"],    dev:"ConcernedApe",        year:2016, plat:["PC","PS5","Xbox","Nintendo Switch"], score:8.9, cover:"linear-gradient(150deg,#04140a,#0c3018,#155028)", desc:"Inherit a run-down farm and build the life you want. A cozy, endlessly charming farming sim with surprising depth." },
+  { id:16, title:"Celeste",                    genre:["Platformer","Indie"],    dev:"Maddy Makes Games",   year:2018, plat:["PC","PS5","Xbox","Nintendo Switch"], score:9.0, cover:"linear-gradient(150deg,#1a0014,#3a0030,#5a0050)", desc:"Help Madeline climb a mountain in this tight, expressive platformer about anxiety, perseverance, and self-acceptance." },
+  { id:17, title:"The Last of Us Part II",     genre:["Action","Adventure"],    dev:"Naughty Dog",         year:2020, plat:["PS5"],                                score:8.8, cover:"linear-gradient(150deg,#0a1200,#1c2c00,#2e4400)", desc:"A harrowing, technically stunning narrative about revenge and its cost in a brutal post-pandemic America." },
+  { id:18, title:"Hollow Knight: Silksong",    genre:["Action","Platformer"],   dev:"Team Cherry",         year:2024, plat:["PC","Nintendo Switch"],              score:9.0, cover:"linear-gradient(150deg,#140014,#2c0030,#440850)", desc:"The long-awaited sequel. Play as Hornet in a new kingdom of haunting beauty and demanding, graceful combat." },
+  { id:19, title:"Death Stranding",            genre:["Action","Adventure"],    dev:"Kojima Productions",  year:2019, plat:["PC","PS5"],                           score:8.4, cover:"linear-gradient(150deg,#001012,#063034,#0a5258)", desc:"A divisive, singular experience about connection and isolation. Deliver cargo across a fractured America as Sam Porter Bridges." },
+  { id:20, title:"Returnal",                   genre:["Action","Roguelike"],    dev:"Housemarque",         year:2021, plat:["PC","PS5"],                           score:8.5, cover:"linear-gradient(150deg,#16000c,#380020,#5c0038)", desc:"A roguelike bullet-hell wrapped in an atmospheric sci-fi mystery. Die, loop, and unravel the secrets of planet Atropos." },
 ];
 
 const GENRES    = [...new Set(GAMES.flatMap(g => g.genre))].sort();
 const PLATFORMS = [...new Set(GAMES.flatMap(g => g.plat))].sort();
 
-// ─── Shared components ────────────────────────────────────────────────────────
+// ─── Small components ─────────────────────────────────────────────────────────
 
-function Badge({ status }) {
+function StatusLabel({ status }) {
   const s = ST[status];
   return (
-    <span style={{
-      padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 500,
-      color: s.color, background: s.bg, whiteSpace: "nowrap",
-    }}>
+    <span style={{ background: s.color, color: "#fff", fontSize: 10, fontWeight: "bold", padding: "2px 7px", borderRadius: 2, whiteSpace: "nowrap" }}>
       {s.label}
     </span>
   );
 }
 
-function GameCard({ game, entry, onOpen }) {
-  const [hov, setHov] = useState(false);
+function CoverCard({ game, onOpen, w }) {
+  const [h, setH] = useState(false);
   return (
     <div
       onClick={() => onOpen(game)}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        borderRadius: 10, overflow: "hidden", cursor: "pointer",
-        border: `1px solid ${hov ? T.bordH : T.bord}`,
-        background: T.card,
-        transform: hov ? "translateY(-3px)" : "none",
-        transition: "transform 0.18s, border-color 0.18s, box-shadow 0.18s",
-        boxShadow: hov ? "0 8px 28px rgba(0,0,0,0.45)" : "none",
-      }}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{ width: w || "100%", flexShrink: w ? 0 : 1, cursor: "pointer" }}
     >
-      {/* Cover */}
-      <div style={{
-        height: 185, background: game.cover, position: "relative",
-        display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 10,
-      }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 55%)" }} />
-        <div style={{ position: "absolute", top: 9, left: 9, background: "rgba(0,0,0,0.6)", borderRadius: 4, padding: "2px 7px", fontSize: 12, fontWeight: 600, color: T.amber }}>
-          ★ {game.score}
-        </div>
-        {entry && (
-          <div style={{ position: "absolute", top: 9, right: 9 }}>
-            <Badge status={entry.status} />
-          </div>
-        )}
-        <div style={{ position: "relative", display: "flex", gap: 3, flexWrap: "wrap" }}>
-          {game.genre.slice(0, 2).map(g => (
-            <span key={g} style={{ fontSize: 9, padding: "2px 5px", borderRadius: 3, background: "rgba(99,102,241,0.3)", color: "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.05em" }}>{g}</span>
-          ))}
-        </div>
+      <div style={{ width: "100%", aspectRatio: "5 / 7", background: game.cover, borderRadius: 3, border: `1px solid ${h ? "#5b8fd6" : T.border}`, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 42, background: "linear-gradient(transparent, rgba(0,0,0,0.92))" }} />
+        <span style={{ position: "absolute", left: 5, bottom: 4, color: T.amber, fontSize: 11, fontWeight: "bold" }}>★ {game.score}</span>
       </div>
-      {/* Info */}
-      <div style={{ padding: "10px 12px" }}>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 700, color: T.text, lineHeight: 1.3, marginBottom: 3 }}>
-          {game.title}
-        </div>
-        <div style={{ fontSize: 11, color: T.tm }}>{game.dev} · {game.year}</div>
-        {entry?.score > 0 && (
-          <div style={{ marginTop: 5, fontSize: 11, color: T.ts }}>
-            Your score: <span style={{ color: T.amber, fontWeight: 600 }}>{entry.score}/10</span>
-            {entry.hours > 0 && ` · ${entry.hours}h`}
-          </div>
-        )}
+      <div style={{ marginTop: 4, fontSize: 11, fontWeight: "bold", color: h ? T.linkHover : T.link, lineHeight: 1.25, ...clamp2 }}>
+        {game.title}
       </div>
     </div>
   );
 }
 
-// ─── Browse page ──────────────────────────────────────────────────────────────
+function SectionHeader({ title, action }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: `1px solid ${T.border}`, paddingBottom: 5, margin: "20px 0 12px" }}>
+      <span style={{ color: "#fff", fontWeight: "bold", fontSize: 14 }}>{title}</span>
+      {action && <span style={{ color: T.link, fontSize: 11, fontWeight: "bold", cursor: "pointer" }}>{action}</span>}
+    </div>
+  );
+}
 
-function BrowsePage({ games, listMap, onOpen }) {
-  const [q,     setQ]    = useState("");
-  const [genre, setGenre] = useState("all");
-  const [plat,  setPlat]  = useState("all");
-  const [sort,  setSort]  = useState("score");
+function RankRow({ rank, game, onOpen }) {
+  const [h, setH] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{ position: "relative", display: "grid", gridTemplateColumns: "20px 40px 1fr", gap: 9, padding: "9px 11px", borderBottom: `1px solid ${T.border}`, background: h ? "#1d1d1d" : "transparent" }}
+    >
+      <span style={{ fontSize: 15, fontWeight: "bold", color: rank <= 3 ? T.amber : T.rank, alignSelf: "center", textAlign: "center" }}>{rank}</span>
+      <div onClick={() => onOpen(game)} style={{ width: 40, height: 57, background: game.cover, borderRadius: 2, cursor: "pointer", flexShrink: 0 }} />
+      <div style={{ minWidth: 0, paddingRight: 28 }}>
+        <div onClick={() => onOpen(game)} style={{ color: T.link, fontWeight: "bold", fontSize: 12, lineHeight: 1.3, cursor: "pointer", ...clamp2 }}>{game.title}</div>
+        <div style={{ color: T.meta, fontSize: 11, marginTop: 3 }}>{game.genre[0]}, {game.year}, scored {game.score.toFixed(2)}</div>
+        <div style={{ color: T.metaDim, fontSize: 11 }}>{fmt(members(game))} members</div>
+      </div>
+      <button onClick={() => onOpen(game)} style={{ position: "absolute", top: 9, right: 10, fontSize: 10, color: T.link, background: T.btn, border: `1px solid ${T.border}`, borderRadius: 2, padding: "1px 7px", cursor: "pointer" }}>
+        add
+      </button>
+    </div>
+  );
+}
 
-  const results = useMemo(() => {
-    let list = games;
-    if (q) {
-      const lq = q.toLowerCase();
-      list = list.filter(g => g.title.toLowerCase().includes(lq) || g.dev.toLowerCase().includes(lq));
-    }
-    if (genre !== "all") list = list.filter(g => g.genre.includes(genre));
-    if (plat  !== "all") list = list.filter(g => g.plat.includes(plat));
-    if (sort === "score") return [...list].sort((a, b) => b.score - a.score);
-    if (sort === "title") return [...list].sort((a, b) => a.title.localeCompare(b.title));
-    if (sort === "year")  return [...list].sort((a, b) => b.year - a.year);
-    return list;
-  }, [games, q, genre, plat, sort]);
+function SidebarPanel({ title, games, onOpen }) {
+  return (
+    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3, marginBottom: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: T.panelHead, padding: "7px 11px", borderRadius: "3px 3px 0 0" }}>
+        <span style={{ color: "#fff", fontWeight: "bold", fontSize: 13 }}>{title}</span>
+        <span style={{ color: T.link, fontSize: 11, cursor: "pointer" }}>More</span>
+      </div>
+      <div>
+        {games.map((g, i) => <RankRow key={g.id} rank={i + 1} game={g} onOpen={onOpen} />)}
+      </div>
+    </div>
+  );
+}
 
-  const selStyle = {
-    padding: "7px 10px", borderRadius: 6, border: `1px solid ${T.bord}`,
-    background: T.surface, color: T.ts, fontSize: 13, cursor: "pointer", outline: "none",
-  };
+// ─── Home page (MyAnimeList homepage layout) ───────────────────────────────────
+
+function HomePage({ games, query, onOpen }) {
+  const welcome = (
+    <div style={{ background: T.bar, borderLeft: `3px solid ${T.nav}`, padding: "9px 13px", color: "#fff", fontWeight: "bold", fontSize: 15, borderRadius: 2, marginBottom: 4 }}>
+      Welcome to GameVault!
+    </div>
+  );
+
+  if (query.trim()) {
+    const lq = query.toLowerCase();
+    const res = games.filter(g => g.title.toLowerCase().includes(lq) || g.dev.toLowerCase().includes(lq));
+    return (
+      <div>
+        {welcome}
+        <SectionHeader title={`Search results for "${query}"`} />
+        {res.length ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 13 }}>
+            {res.map(g => <CoverCard key={g.id} game={g} onOpen={onOpen} />)}
+          </div>
+        ) : (
+          <div style={{ color: T.meta, fontSize: 12, padding: "30px 0" }}>No games found for "{query}".</div>
+        )}
+      </div>
+    );
+  }
+
+  const newest = [...games].sort((a, b) => b.year - a.year);
+  const top    = [...games].sort((a, b) => b.score - a.score);
 
   return (
     <div>
-      {/* Hero */}
-      <div style={{ textAlign: "center", padding: "50px 0 30px" }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: T.accent, marginBottom: 12, fontWeight: 500 }}>
-          TRACK · RATE · DISCOVER
-        </div>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 42, fontWeight: 800, color: T.text, margin: "0 0 10px", lineHeight: 1.1 }}>
-          Your Gaming Library
-        </h1>
-        <p style={{ color: T.ts, fontSize: 15, margin: "0 0 24px" }}>
-          Track every game you've played, rate them, and discover what to play next.
-        </p>
-        <div style={{ position: "relative", maxWidth: 480, margin: "0 auto" }}>
-          <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", fontSize: 15, color: T.tm, pointerEvents: "none" }}>🔍</span>
-          <input
-            type="text"
-            placeholder="Search games or developers..."
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            style={{ width: "100%", padding: "11px 14px 11px 38px", borderRadius: 8, border: `1px solid ${T.bord}`, background: T.surface, color: T.text, fontSize: 14, outline: "none" }}
-          />
-        </div>
+      {welcome}
+
+      <SectionHeader title="New & Trending" action="View More" />
+      <div style={{ display: "flex", gap: 11, overflowX: "auto", paddingBottom: 6 }}>
+        {newest.slice(0, 10).map(g => <CoverCard key={g.id} game={g} onOpen={onOpen} w={124} />)}
       </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", alignItems: "center" }}>
-        <select value={genre} onChange={e => setGenre(e.target.value)} style={selStyle}>
-          <option value="all">All Genres</option>
-          {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
-        <select value={plat} onChange={e => setPlat(e.target.value)} style={selStyle}>
-          <option value="all">All Platforms</option>
-          {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={sort} onChange={e => setSort(e.target.value)} style={selStyle}>
-          <option value="score">Top Rated</option>
-          <option value="year">Newest First</option>
-          <option value="title">A–Z</option>
-        </select>
-        <span style={{ marginLeft: "auto", fontSize: 12, color: T.tm }}>{results.length} games</span>
+      <SectionHeader title="Highest Rated" action="View More" />
+      <div style={{ display: "flex", gap: 11, overflowX: "auto", paddingBottom: 6 }}>
+        {top.slice(0, 10).map(g => <CoverCard key={g.id} game={g} onOpen={onOpen} w={124} />)}
       </div>
 
-      {/* Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(158px, 1fr))", gap: 14, paddingBottom: 60 }}>
-        {results.map(g => (
-          <GameCard key={g.id} game={g} entry={listMap[g.id]} onOpen={onOpen} />
-        ))}
+      <SectionHeader title="Browse All Games" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))", gap: 13, paddingBottom: 30 }}>
+        {games.map(g => <CoverCard key={g.id} game={g} onOpen={onOpen} />)}
       </div>
-      {!results.length && (
-        <div style={{ textAlign: "center", padding: "70px 0", color: T.tm, fontSize: 14 }}>
-          No games found. Try adjusting your filters.
-        </div>
-      )}
     </div>
   );
 }
@@ -236,131 +213,88 @@ function BrowsePage({ games, listMap, onOpen }) {
 
 function MyListPage({ userList, gameMap, onOpen }) {
   const [stFilter, setStFilter] = useState("all");
-  const [sort, setSort]         = useState("date");
 
   const stats = useMemo(() => {
     const scored = userList.filter(e => e.score > 0);
     return {
-      total:     userList.length,
-      playing:   userList.filter(e => e.status === "playing").length,
+      total: userList.length,
+      playing: userList.filter(e => e.status === "playing").length,
       completed: userList.filter(e => e.status === "completed").length,
-      hours:     userList.reduce((s, e) => s + (e.hours || 0), 0),
-      avg:       scored.length
-                   ? (scored.reduce((s, e) => s + e.score, 0) / scored.length).toFixed(1)
-                   : "—",
+      hours: userList.reduce((s, e) => s + (e.hours || 0), 0),
+      avg: scored.length ? (scored.reduce((s, e) => s + e.score, 0) / scored.length).toFixed(1) : "—",
     };
   }, [userList]);
 
-  const rows = useMemo(() => {
-    let list = stFilter === "all" ? userList : userList.filter(e => e.status === stFilter);
-    if (sort === "score") return [...list].sort((a, b) => (b.score || 0) - (a.score || 0));
-    if (sort === "hours") return [...list].sort((a, b) => (b.hours || 0) - (a.hours || 0));
-    if (sort === "title") return [...list].sort((a, b) => (gameMap[a.id]?.title || "").localeCompare(gameMap[b.id]?.title || ""));
-    return list;
-  }, [userList, stFilter, sort, gameMap]);
-
+  const rows = stFilter === "all" ? userList : userList.filter(e => e.status === stFilter);
   const TABS = ["all", ...Object.keys(ST)];
 
   if (!userList.length) {
     return (
-      <div style={{ textAlign: "center", padding: "90px 0" }}>
-        <div style={{ fontSize: 52, marginBottom: 16 }}>🎮</div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 8 }}>
-          Your list is empty
+      <div>
+        <div style={{ background: T.bar, borderLeft: `3px solid ${T.nav}`, padding: "9px 13px", color: "#fff", fontWeight: "bold", fontSize: 15, borderRadius: 2, marginBottom: 16 }}>
+          My Game List
         </div>
-        <div style={{ color: T.tm, fontSize: 14 }}>Browse games and click any to add them to your list.</div>
+        <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3, padding: "50px 20px", textAlign: "center", color: T.meta, fontSize: 13 }}>
+          Your list is empty. Browse games and click <span style={{ color: T.link }}>add</span> to start tracking.
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ paddingTop: 30, paddingBottom: 60 }}>
+    <div>
+      <div style={{ background: T.bar, borderLeft: `3px solid ${T.nav}`, padding: "9px 13px", color: "#fff", fontWeight: "bold", fontSize: 15, borderRadius: 2, marginBottom: 14 }}>
+        My Game List
+      </div>
+
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10, marginBottom: 26 }}>
-        {[
-          ["🎮", "Total Games",   stats.total],
-          ["▶",  "Playing",       stats.playing],
-          ["✅", "Completed",     stats.completed],
-          ["⏱",  "Hours Played",  `${stats.hours}h`],
-          ["⭐", "Avg Score",     stats.avg],
-        ].map(([icon, label, val]) => (
-          <div key={label} style={{ background: T.card, border: `1px solid ${T.bord}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
-            <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 700, color: T.text }}>{val}</div>
-            <div style={{ fontSize: 10, color: T.tm, marginTop: 2 }}>{label}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 16 }}>
+        {[["Total", stats.total], ["Playing", stats.playing], ["Completed", stats.completed], ["Hours", `${stats.hours}h`], ["Mean Score", stats.avg]].map(([label, val]) => (
+          <div key={label} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3, padding: "11px 12px" }}>
+            <div style={{ fontSize: 19, fontWeight: "bold", color: "#fff" }}>{val}</div>
+            <div style={{ fontSize: 11, color: T.metaDim, marginTop: 2 }}>{label}</div>
           </div>
         ))}
       </div>
 
-      {/* Status tabs + sort */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
         {TABS.map(tab => {
-          const s     = tab === "all" ? null : ST[tab];
-          const count = tab === "all" ? userList.length : userList.filter(e => e.status === tab).length;
           const active = stFilter === tab;
+          const count = tab === "all" ? userList.length : userList.filter(e => e.status === tab).length;
           return (
             <button key={tab} onClick={() => setStFilter(tab)} style={{
-              padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer",
-              border: `1px solid ${active ? (s?.color || T.accent) : T.bord}`,
-              background: active ? (s?.bg || T.accentDim) : "transparent",
-              color: active ? (s?.color || T.accent) : T.tm,
-              transition: "all 0.12s",
+              padding: "5px 12px", borderRadius: 2, fontSize: 11, fontWeight: "bold", cursor: "pointer",
+              border: `1px solid ${active ? T.nav : T.border}`,
+              background: active ? T.nav : T.card,
+              color: active ? "#fff" : T.meta,
             }}>
               {tab === "all" ? "All" : ST[tab].label} ({count})
             </button>
           );
         })}
-        <select value={sort} onChange={e => setSort(e.target.value)} style={{ marginLeft: "auto", padding: "4px 8px", borderRadius: 6, border: `1px solid ${T.bord}`, background: T.surface, color: T.ts, fontSize: 12, cursor: "pointer", outline: "none" }}>
-          <option value="date">Date Added</option>
-          <option value="score">My Score</option>
-          <option value="hours">Hours</option>
-          <option value="title">Title</option>
-        </select>
       </div>
 
       {/* Table */}
-      <div style={{ background: T.card, border: `1px solid ${T.bord}`, borderRadius: 10, overflow: "hidden" }}>
-        {/* Header */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 115px 68px 68px 56px", padding: "9px 16px", borderBottom: `1px solid ${T.bord}`, fontSize: 10, fontWeight: 600, color: T.tm, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          <span>Game</span>
-          <span>Status</span>
-          <span style={{ textAlign: "center" }}>Score</span>
-          <span style={{ textAlign: "center" }}>Hours</span>
-          <span></span>
+      <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 60px 60px", padding: "8px 12px", background: T.panelHead, fontSize: 10, fontWeight: "bold", color: "#ddd", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <span>Game</span><span>Status</span><span style={{ textAlign: "center" }}>Score</span><span style={{ textAlign: "center" }}>Hours</span>
         </div>
-        {/* Rows */}
         {rows.map((entry, i) => {
           const g = gameMap[entry.id];
           if (!g) return null;
           return (
-            <div key={entry.id} style={{ display: "grid", gridTemplateColumns: "1fr 115px 68px 68px 56px", padding: "12px 16px", borderBottom: i < rows.length - 1 ? `1px solid ${T.bord}` : "none", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 6, background: g.cover, flexShrink: 0 }} />
+            <div key={entry.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 60px 60px", padding: "10px 12px", borderBottom: i < rows.length - 1 ? `1px solid ${T.border}` : "none", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                <div onClick={() => onOpen(g)} style={{ width: 34, height: 34, borderRadius: 2, background: g.cover, flexShrink: 0, cursor: "pointer" }} />
                 <div style={{ minWidth: 0 }}>
-                  <div
-                    onClick={() => onOpen(g)}
-                    style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 700, color: T.text, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                  >
-                    {g.title}
-                  </div>
-                  <div style={{ fontSize: 10, color: T.tm }}>{g.genre.slice(0, 2).join(", ")}</div>
+                  <div onClick={() => onOpen(g)} style={{ fontSize: 12, fontWeight: "bold", color: T.link, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.title}</div>
+                  <div style={{ fontSize: 10, color: T.metaDim }}>{g.genre.join(", ")}</div>
                 </div>
               </div>
-              <Badge status={entry.status} />
-              <div style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: entry.score ? T.amber : T.tm }}>
-                {entry.score || "—"}
-              </div>
-              <div style={{ textAlign: "center", fontSize: 12, color: T.ts }}>
-                {entry.hours > 0 ? `${entry.hours}h` : "—"}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <button
-                  onClick={() => onOpen(g)}
-                  style={{ padding: "3px 9px", borderRadius: 4, fontSize: 11, cursor: "pointer", border: `1px solid ${T.bord}`, background: "transparent", color: T.ts }}
-                >
-                  Edit
-                </button>
-              </div>
+              <StatusLabel status={entry.status} />
+              <div style={{ textAlign: "center", fontSize: 13, fontWeight: "bold", color: entry.score ? T.amber : T.metaDim }}>{entry.score || "—"}</div>
+              <div style={{ textAlign: "center", fontSize: 11, color: T.meta }}>{entry.hours > 0 ? `${entry.hours}h` : "—"}</div>
             </div>
           );
         })}
@@ -369,134 +303,161 @@ function MyListPage({ userList, gameMap, onOpen }) {
   );
 }
 
-// ─── Game detail page ─────────────────────────────────────────────────────────
+// ─── Detail page (MyAnimeList two-column layout) ───────────────────────────────
 
 function DetailPage({ game, entry, onBack, onSave, onRemove }) {
   const [status, setStatus] = useState(entry?.status || "plan-to-play");
-  const [score,  setScore]  = useState(entry?.score  || 0);
-  const [hours,  setHours]  = useState(entry?.hours  || 0);
-  const [notes,  setNotes]  = useState(entry?.notes  || "");
+  const [score, setScore]   = useState(entry?.score || 0);
+  const [hours, setHours]   = useState(entry?.hours || 0);
+  const [notes, setNotes]   = useState(entry?.notes || "");
+
+  const infoRow = (label, val) => (
+    <div style={{ fontSize: 12, color: T.meta, marginBottom: 7, lineHeight: 1.4 }}>
+      <span style={{ color: "#fff", fontWeight: "bold" }}>{label}:</span> {val}
+    </div>
+  );
 
   return (
-    <div style={{ paddingBottom: 70 }}>
-      {/* Full-bleed cover */}
-      <div style={{
-        height: 260, background: game.cover, position: "relative",
-        display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "22px 20px",
-        marginLeft: -20, marginRight: -20,
-      }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #080B14 0%, rgba(8,11,20,0.55) 50%, rgba(8,11,20,0.08) 100%)" }} />
-        <button
-          onClick={onBack}
-          style={{ position: "absolute", top: 18, left: 20, background: "rgba(0,0,0,0.55)", border: `1px solid ${T.bord}`, borderRadius: 6, padding: "5px 13px", color: T.ts, cursor: "pointer", fontSize: 13 }}
-        >
-          ← Back
-        </button>
-        <div style={{ position: "relative" }}>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 9 }}>
-            {game.genre.map(g => (
-              <span key={g} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 3, background: "rgba(99,102,241,0.28)", color: "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.06em" }}>{g}</span>
-            ))}
-          </div>
-          <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 32, fontWeight: 800, color: T.text, margin: "0 0 5px", lineHeight: 1.1 }}>{game.title}</h1>
-          <div style={{ fontSize: 13, color: T.ts }}>{game.dev} · {game.year} · {game.plat.join(", ")}</div>
-        </div>
+    <div>
+      <div style={{ marginBottom: 12 }}>
+        <span onClick={onBack} style={{ color: T.link, fontSize: 12, cursor: "pointer" }}>← Back</span>
       </div>
 
-      <div style={{ maxWidth: 680, paddingTop: 26 }}>
-        {/* Score card + description */}
-        <div style={{ display: "flex", gap: 20, marginBottom: 26, alignItems: "flex-start" }}>
-          <div style={{ background: T.card, border: `1px solid ${T.bord}`, borderRadius: 10, padding: "15px 20px", textAlign: "center", flexShrink: 0 }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: T.amber, lineHeight: 1 }}>★ {game.score}</div>
-            <div style={{ fontSize: 10, color: T.tm, marginTop: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Community</div>
+      <h1 style={{ color: "#fff", fontSize: 22, fontWeight: "bold", marginBottom: 14, lineHeight: 1.2 }}>{game.title}</h1>
+
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* Left sidebar */}
+        <div style={{ width: 200, flexShrink: 0 }}>
+          <div style={{ width: "100%", aspectRatio: "5 / 7", background: game.cover, borderRadius: 3, border: `1px solid ${T.border}`, marginBottom: 14 }} />
+
+          <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 3, padding: "12px 13px", marginBottom: 14 }}>
+            <div style={{ textAlign: "center", paddingBottom: 11, marginBottom: 11, borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: 10, color: T.metaDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Community Score</div>
+              <div style={{ fontSize: 30, fontWeight: "bold", color: T.amber, lineHeight: 1.3 }}>★ {game.score}</div>
+            </div>
+            {infoRow("Developer", game.dev)}
+            {infoRow("Released", game.year)}
+            {infoRow("Platforms", game.plat.join(", "))}
+            {infoRow("Genres", game.genre.join(", "))}
           </div>
-          <p style={{ color: T.ts, fontSize: 14, lineHeight: 1.8, margin: 0, paddingTop: 2 }}>{game.desc}</p>
         </div>
 
-        <div style={{ height: 1, background: T.bord, marginBottom: 26 }} />
+        {/* Main column */}
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <div style={{ background: T.panelHead, color: "#fff", fontWeight: "bold", fontSize: 13, padding: "6px 11px", borderRadius: "3px 3px 0 0" }}>Synopsis</div>
+          <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: "none", borderRadius: "0 0 3px 3px", padding: "13px 14px", color: T.text, fontSize: 13, lineHeight: 1.7, marginBottom: 18 }}>
+            {game.desc}
+          </div>
 
-        {/* Entry form */}
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 20 }}>
-          {entry ? "Update your entry" : "Add to your list"}
-        </div>
-
-        <div style={{ display: "grid", gap: 20 }}>
-          {/* Status selector */}
-          <div>
-            <div style={{ fontSize: 10, color: T.tm, marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.08em" }}>Status</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ background: T.panelHead, color: "#fff", fontWeight: "bold", fontSize: 13, padding: "6px 11px", borderRadius: "3px 3px 0 0" }}>
+            {entry ? "Edit Your Entry" : "Add to My List"}
+          </div>
+          <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: "none", borderRadius: "0 0 3px 3px", padding: "15px 14px" }}>
+            {/* Status */}
+            <div style={{ fontSize: 11, color: T.metaDim, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
               {Object.entries(ST).map(([v, s]) => (
                 <button key={v} onClick={() => setStatus(v)} style={{
-                  padding: "7px 14px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer",
-                  border: `1px solid ${status === v ? s.color : T.bord}`,
-                  background: status === v ? s.bg : "transparent",
-                  color: status === v ? s.color : T.tm,
-                  transition: "all 0.12s",
-                }}>
-                  {s.label}
-                </button>
+                  padding: "6px 12px", borderRadius: 2, fontSize: 11, fontWeight: "bold", cursor: "pointer",
+                  border: `1px solid ${status === v ? s.color : T.border}`,
+                  background: status === v ? s.color : T.card,
+                  color: status === v ? "#fff" : T.meta,
+                }}>{s.label}</button>
               ))}
             </div>
-          </div>
 
-          {/* Score selector */}
-          <div>
-            <div style={{ fontSize: 10, color: T.tm, marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Your score{score > 0 ? ` · ${score}/10` : " · not rated yet"}
+            {/* Score */}
+            <div style={{ fontSize: 11, color: T.metaDim, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Your Score{score > 0 ? ` — ${score}/10` : ""}
             </div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
               {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
                 <button key={n} onClick={() => setScore(score === n ? 0 : n)} style={{
-                  width: 37, height: 33, borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                  border: `1px solid ${score >= n ? T.amber : T.bord}`,
-                  background: score >= n ? "rgba(245,158,11,0.15)" : "transparent",
-                  color: score >= n ? T.amber : T.tm,
-                  transition: "all 0.1s",
-                }}>
-                  {n}
-                </button>
+                  width: 34, height: 30, borderRadius: 2, fontSize: 12, fontWeight: "bold", cursor: "pointer",
+                  border: `1px solid ${score >= n ? T.amber : T.border}`,
+                  background: score >= n ? "rgba(240,168,48,0.15)" : T.card,
+                  color: score >= n ? T.amber : T.metaDim,
+                }}>{n}</button>
               ))}
             </div>
-          </div>
 
-          {/* Hours played */}
-          <div>
-            <div style={{ fontSize: 10, color: T.tm, marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.08em" }}>Hours played</div>
-            <input
-              type="number" min="0" value={hours}
-              onChange={e => setHours(Math.max(0, Number(e.target.value)))}
-              style={{ width: 110, padding: "8px 10px", borderRadius: 6, border: `1px solid ${T.bord}`, background: T.card, color: T.text, fontSize: 13, outline: "none" }}
-            />
-          </div>
+            {/* Hours */}
+            <div style={{ fontSize: 11, color: T.metaDim, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.05em" }}>Hours Played</div>
+            <input type="number" min="0" value={hours} onChange={e => setHours(Math.max(0, Number(e.target.value)))}
+              style={{ width: 100, padding: "7px 9px", borderRadius: 2, border: `1px solid ${T.border}`, background: T.card, color: T.text, fontSize: 12, outline: "none", marginBottom: 16 }} />
 
-          {/* Notes */}
-          <div>
-            <div style={{ fontSize: 10, color: T.tm, marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.08em" }}>Notes (optional)</div>
-            <textarea
-              value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Add personal notes, thoughts, review..."
-              rows={3}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 6, border: `1px solid ${T.bord}`, background: T.card, color: T.text, fontSize: 13, resize: "vertical", outline: "none" }}
-            />
-          </div>
+            {/* Notes */}
+            <div style={{ fontSize: 11, color: T.metaDim, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.05em" }}>Notes</div>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Your thoughts, review..."
+              style={{ width: "100%", padding: "9px 11px", borderRadius: 2, border: `1px solid ${T.border}`, background: T.card, color: T.text, fontSize: 12, resize: "vertical", outline: "none", marginBottom: 16 }} />
 
-          {/* Action buttons */}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => onSave({ status, score, hours, notes })}
-              style={{ padding: "11px 20px", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none", background: T.accentB, color: "#fff", flex: 1 }}
-            >
-              {entry ? "Update entry" : "Add to list"}
-            </button>
-            {entry && (
-              <button
-                onClick={onRemove}
-                style={{ padding: "11px 16px", borderRadius: 7, fontSize: 13, cursor: "pointer", border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: T.red }}
-              >
-                Remove
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 7 }}>
+              <button onClick={() => onSave({ status, score, hours, notes })}
+                style={{ padding: "10px 20px", borderRadius: 2, fontSize: 12, fontWeight: "bold", cursor: "pointer", border: "none", background: T.nav, color: "#fff", flex: 1 }}>
+                {entry ? "Update" : "Add to My List"}
               </button>
-            )}
+              {entry && (
+                <button onClick={onRemove}
+                  style={{ padding: "10px 16px", borderRadius: 2, fontSize: 12, fontWeight: "bold", cursor: "pointer", border: `1px solid ${T.red}`, background: "transparent", color: T.red }}>
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Top header + nav ─────────────────────────────────────────────────────────
+
+function TopHeader({ onHome }) {
+  return (
+    <div style={{ background: T.header, borderBottom: "1px solid #1a1a1a" }}>
+      <div style={{ maxWidth: 1024, margin: "0 auto", padding: "11px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div onClick={onHome} style={{ color: "#fff", fontWeight: "bold", fontSize: 25, letterSpacing: "-0.5px", cursor: "pointer" }}>
+          Game<span style={{ color: T.link }}>Vault</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <span style={{ color: "#999", fontSize: 11, cursor: "pointer" }}>Hide Ads</span>
+          <button style={{ background: T.btn, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontSize: 12, fontWeight: "bold", cursor: "pointer" }}>Login</button>
+          <button style={{ background: T.nav, color: "#fff", border: "none", padding: "6px 16px", borderRadius: 3, fontSize: 12, fontWeight: "bold", cursor: "pointer" }}>Sign Up</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavBar({ page, go, query, setQuery }) {
+  const items = [["Browse", "home"], ["My List", "mylist"], ["Top Games", "home"], ["Community", null], ["Help", null]];
+  return (
+    <div style={{ background: T.nav }}>
+      <div style={{ maxWidth: 1024, margin: "0 auto", padding: "0 12px", display: "flex", alignItems: "center", height: 38 }}>
+        {items.map(([label, p], i) => {
+          const active = p && (page === p) && (label !== "Top Games");
+          return (
+            <span key={i} onClick={() => p && go(p)} style={{
+              color: "#fff", fontWeight: "bold", fontSize: 12, padding: "0 13px", height: 38,
+              display: "flex", alignItems: "center", cursor: p ? "pointer" : "default",
+              background: active ? T.navActive : "transparent",
+            }}>{label}</span>
+          );
+        })}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+          <select style={{ height: 25, border: "none", fontSize: 11, padding: "0 4px", borderRadius: "3px 0 0 3px", outline: "none" }}>
+            <option>All</option>
+          </select>
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); go("home"); }}
+            placeholder="Search games, developers..."
+            style={{ height: 25, width: 210, border: "none", padding: "0 9px", fontSize: 11, outline: "none", color: "#111" }}
+          />
+          <button style={{ height: 25, background: "#1c1c1c", color: "#fff", border: "none", padding: "0 11px", cursor: "pointer", borderRadius: "0 3px 3px 0", display: "flex", alignItems: "center" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -506,80 +467,55 @@ function DetailPage({ game, entry, onBack, onSave, onRemove }) {
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [page,     setPage]    = useState("browse"); // "browse" | "mylist" | "detail"
-  const [prevPage, setPrev]    = useState("browse");
-  const [selGame,  setSel]     = useState(null);
-  const [userList, setList]    = useState([]);
+  const [page, setPage]     = useState("home"); // "home" | "mylist" | "detail"
+  const [prevPage, setPrev] = useState("home");
+  const [selGame, setSel]   = useState(null);
+  const [userList, setList] = useState([]);
+  const [query, setQuery]   = useState("");
 
   const listMap = useMemo(() => Object.fromEntries(userList.map(e => [e.id, e])), [userList]);
-  const gameMap = useMemo(() => Object.fromEntries(GAMES.map(g => [g.id, g])),   []);
+  const gameMap = useMemo(() => Object.fromEntries(GAMES.map(g => [g.id, g])), []);
 
-  const openGame = (game) => { setPrev(page); setSel(game); setPage("detail"); };
-  const goBack   = ()     => { setPage(prevPage); setSel(null); };
+  const topRated = useMemo(() => [...GAMES].sort((a, b) => b.score - a.score).slice(0, 5), []);
+  const popular  = useMemo(() => [...GAMES].sort((a, b) => members(b) - members(a)).slice(0, 5), []);
+
+  const openGame = (game) => { setPrev(page === "detail" ? prevPage : page); setSel(game); setPage("detail"); };
+  const goBack   = () => { setPage(prevPage); setSel(null); };
+  const go       = (p) => { setSel(null); setPage(p); };
 
   const saveEntry = ({ status, score, hours, notes }) => {
     setList(prev => {
-      const ex    = prev.find(e => e.id === selGame.id);
+      const ex = prev.find(e => e.id === selGame.id);
       const entry = { id: selGame.id, status, score, hours, notes, dateAdded: ex?.dateAdded || Date.now() };
       return ex ? prev.map(e => e.id === selGame.id ? entry : e) : [...prev, entry];
     });
     goBack();
   };
-
   const removeEntry = () => { setList(prev => prev.filter(e => e.id !== selGame.id)); goBack(); };
 
-  const navBtn = (p, label) => {
-    const active = page === p || (page === "detail" && prevPage === p);
-    return (
-      <button
-        onClick={() => { setSel(null); setPage(p); }}
-        style={{
-          padding: "5px 14px", borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none",
-          background: active ? T.accentDim : "transparent",
-          color:      active ? T.accent    : T.ts,
-          transition: "all 0.12s",
-        }}
-      >
-        {label}
-      </button>
-    );
-  };
-
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans',sans-serif", color: T.text }}>
-      {/* Navbar */}
-      <nav style={{ background: T.surface, borderBottom: `1px solid ${T.bord}`, position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", height: 56, gap: 4 }}>
-          <div
-            onClick={() => { setSel(null); setPage("browse"); }}
-            style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: T.text, marginRight: 22, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}
-          >
-            <span style={{ color: T.accent, fontSize: 13 }}>▶</span> GameVault
-          </div>
-          {navBtn("browse", "🎮 Browse")}
-          {navBtn("mylist", `📋 My List${userList.length ? ` (${userList.length})` : ""}`)}
-          <div style={{ marginLeft: "auto", fontSize: 12, color: T.tm }}>
-            {userList.length > 0 && `${userList.length} game${userList.length !== 1 ? "s" : ""} tracked`}
-          </div>
-        </div>
-      </nav>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text }}>
+      <TopHeader onHome={() => { setQuery(""); go("home"); }} />
+      <NavBar page={page} go={go} query={query} setQuery={setQuery} />
 
-      {/* Main content */}
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px" }}>
-        {page === "detail" && selGame ? (
-          <DetailPage
-            game={selGame}
-            entry={listMap[selGame.id]}
-            onBack={goBack}
-            onSave={saveEntry}
-            onRemove={removeEntry}
-          />
-        ) : page === "mylist" ? (
-          <MyListPage userList={userList} gameMap={gameMap} onOpen={openGame} />
-        ) : (
-          <BrowsePage games={GAMES} listMap={listMap} onOpen={openGame} />
+      <div style={{ maxWidth: 1024, margin: "0 auto", padding: "16px 12px", display: "flex", gap: 18, alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {page === "detail" && selGame ? (
+            <DetailPage game={selGame} entry={listMap[selGame.id]} onBack={goBack} onSave={saveEntry} onRemove={removeEntry} />
+          ) : page === "mylist" ? (
+            <MyListPage userList={userList} gameMap={gameMap} onOpen={openGame} />
+          ) : (
+            <HomePage games={GAMES} query={query} onOpen={openGame} />
+          )}
+        </div>
+
+        {page === "home" && (
+          <aside style={{ width: 290, flexShrink: 0 }}>
+            <SidebarPanel title="Top Rated Games" games={topRated} onOpen={openGame} />
+            <SidebarPanel title="Most Popular" games={popular} onOpen={openGame} />
+          </aside>
         )}
-      </main>
+      </div>
     </div>
   );
 }
