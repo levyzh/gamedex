@@ -1,53 +1,34 @@
-import { useState, useEffect, useRef } from "react";
-import GameCard from "./GameCard";
-import ArrowBtn from "./ArrowBtn";
-import { display, useT } from "../theme";
-import type { Game } from "../types";
+import { useState } from "react";
+import { display, useT } from "./theme";
 
-export default function CategoryRow({ title, games, onOpen, onViewMore }: { title: string; games: Game[]; onOpen: (g: Game) => void; onViewMore: () => void }) {
+// ─── Welcome banner (dismissible) ──────────────────────────────────────────────
+export default function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
   const T = useT();
-  const ref = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
-  const [atStart, setAtStart] = useState(true);
-  const [atEnd, setAtEnd] = useState(false);
-
-  const update = () => {
-    const el = ref.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 1);
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
-  };
-  useEffect(() => { update(); }, [games]);
-
-  const scroll = (dir: number) => {
-    const el = ref.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
-  };
-
-  if (!games || !games.length) return null;
-
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "26px 0 12px" }}>
-        <h2 style={{ fontFamily: display, fontWeight: 600, fontSize: 16, color: T.text, letterSpacing: "-0.01em" }}>{title}</h2>
-        <button onClick={onViewMore}
-          style={{ color: T.link, fontSize: 12, fontWeight: 500, cursor: "pointer", background: "none", border: "none" }}>
-          View More
-        </button>
-      </div>
-
-      <div style={{ position: "relative" }}>
-        <div ref={ref} onScroll={update} className="gv-hscroll"
-          style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
-          {games.map(g => (
-            <div key={g.id} style={{ flex: "0 0 calc((100% - 70px) / 5.5)" }}>
-              <GameCard game={g} onOpen={onOpen} />
-            </div>
-          ))}
-        </div>
-        {hover && !atStart && <ArrowBtn dir="left" onClick={() => scroll(-1)} />}
-        {hover && !atEnd && <ArrowBtn dir="right" onClick={() => scroll(1)} />}
-      </div>
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: "relative", overflow: "hidden",
+        background: T.accentSoft, borderLeft: `3px solid ${T.nav}`, padding: "14px 18px",
+        color: T.text, borderRadius: 10, marginBottom: 4,
+        animation: "gv-banner-in 0.45s ease both",
+      }}
+    >
+      <div style={{ fontFamily: display, fontWeight: 600, fontSize: 17, letterSpacing: "-0.01em" }}>Welcome to GameVault</div>
+      <div style={{ color: T.meta, fontSize: 13, marginTop: 3, paddingRight: 22 }}>Track what you play, rate it, and log your hours — your library, your way.</div>
+      <button
+        onClick={onDismiss}
+        aria-label="Hide welcome banner"
+        style={{
+          position: "absolute", top: 9, right: 9, width: 24, height: 24, borderRadius: 6,
+          border: "none", background: hover ? T.chipBg : "transparent", color: T.meta,
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 17, lineHeight: 1, opacity: hover ? 1 : 0,
+          transition: "opacity 0.16s, background 0.16s",
+        }}
+      >×</button>
     </div>
   );
 }

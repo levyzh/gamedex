@@ -1,31 +1,32 @@
-import { RAWG } from "./rawg";
-import type { ListItem } from "./types";
+import { body, display } from "./theme";
 
-export const STATUSES = ["Playing", "Completed", "On Hold", "Dropped", "Plan to Play"];
-
-export const STATUS_COLOR: Record<string, string> = {
-  Playing: "#6E8BFF", Completed: "#22C55E", "On Hold": "#F59E0B",
-  Dropped: "#F87171", "Plan to Play": "#9CA3AF",
-};
-
-// ─── Browse page (searchable genre / platform / tag filters + server fetch) ────
-// Sort options map to RAWG's `ordering` param, so sorting happens across the
-// whole catalog rather than only the games already loaded.
-export const BROWSE_SORTERS: Record<string, { label: string; ordering: string }> = {
-  rank:  { label: "Most Popular", ordering: "-added" },
-  score: { label: "Top Rated",    ordering: "-metacritic" },
-  year:  { label: "Newest",       ordering: "-released" },
-  title: { label: "A–Z",          ordering: "name" },
-};
-
-// Each filter type maps to a different RAWG query param.
-export const FILTER_PARAM: Record<string, string> = { genre: "genres", platform: "parent_platforms", tag: "tags" };
-
-export const FILTER_LABEL: Record<string, string> = { genre: "Genre", platform: "Platform", tag: "Tag" };
-
-export const LIST_SORTERS: Record<string, { label: string; fn: (a: ListItem, b: ListItem) => number }> = {
-  title:  { label: "Title (A–Z)", fn: (a, b) => a.game.title.localeCompare(b.game.title) },
-  status: { label: "Status",      fn: (a, b) => (STATUSES.indexOf(a.entry.status) - STATUSES.indexOf(b.entry.status)) || a.game.title.localeCompare(b.game.title) },
-  score:  { label: "Score",       fn: (a, b) => ((b.entry.score || 0) - (a.entry.score || 0)) || a.game.title.localeCompare(b.game.title) },
-  hours:  { label: "Hours",       fn: (a, b) => ((b.entry.hours || 0) - (a.entry.hours || 0)) || a.game.title.localeCompare(b.game.title) },
-};
+// ─── Global styles + fonts ────────────────────────────────────────────────────
+(() => {
+  if (typeof document === "undefined" || document.getElementById("gv-setup")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href =
+    "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap";
+  document.head.appendChild(link);
+  const style = document.createElement("style");
+  style.id = "gv-setup";
+  style.textContent = `
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 4px; }
+    button { font-family: 'Inter', sans-serif; }
+    input, textarea, select { font-family: 'Inter', sans-serif; }
+    a { text-decoration: none; }
+    @keyframes gv-banner-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes gv-spin { to { transform: rotate(360deg); } }
+    .gv-hscroll { scrollbar-width: none; -ms-overflow-style: none; }
+    .gv-hscroll::-webkit-scrollbar { display: none; }
+    @media (max-width: 820px) {
+      .gv-body { flex-direction: column !important; }
+      .gv-rail { width: 100% !important; }
+      .gv-detail { grid-template-columns: 1fr !important; }
+    }
+  `;
+  document.head.appendChild(style);
+})();

@@ -1,46 +1,53 @@
-import { useState } from "react";
-import Icon from "./Icon";
-import { coverBg, fmt, members } from "../rawg";
-import { clamp2, display, useT } from "../theme";
-import type { Game } from "../types";
+import { useState, useEffect, useRef } from "react";
+import GameCard from "./GameCard";
+import ArrowBtn from "./ArrowBtn";
+import { display, useT } from "./theme";
+import type { Game } from "./types";
 
-// ─── Rank row (sidebar) ────────────────────────────────────────────────────────
-export default function RankRow({ rank, game, onOpen }: { rank: number; game: Game; onOpen: (g: Game) => void }) {
+export default function CategoryRow({ title, games, onOpen, onViewMore }: { title: string; games: Game[]; onOpen: (g: Game) => void; onViewMore: () => void }) {
   const T = useT();
+  const ref = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
+
+  const update = () => {
+    const el = ref.current;
+    if (!el) return;
+    setAtStart(el.scrollLeft <= 1);
+    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+  };
+  useEffect(() => { update(); }, [games]);
+
+  const scroll = (dir: number) => {
+    const el = ref.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
+  };
+
+  if (!games || !games.length) return null;
+
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        position: "relative", display: "grid", gridTemplateColumns: "26px 40px 1fr",
-        gap: 10, padding: "10px 14px", alignItems: "center",
-        borderTop: `1px solid ${T.border}`, background: hover ? T.cardH : "transparent",
-        transition: "background 0.12s",
-      }}
-    >
-      <span style={{
-        fontFamily: display, fontSize: 16, fontWeight: 600, textAlign: "center",
-        fontVariantNumeric: "tabular-nums",
-        color: rank <= 3 ? T.accent : T.rank,
-      }}>{rank}</span>
-      <div onClick={() => onOpen(game)} style={{ width: 40, height: 56, ...coverBg(game), borderRadius: 5, cursor: "pointer", flexShrink: 0, border: `1px solid ${T.border}`, filter: game.adult ? "blur(7px)" : "none", overflow: "hidden" }} />
-      <div style={{ minWidth: 0, paddingRight: 26 }}>
-        <div onClick={() => onOpen(game)} style={{ color: T.text, fontWeight: 500, fontSize: 12.5, lineHeight: 1.3, cursor: "pointer", ...clamp2 }}>{game.adult ? "Hidden — adult content" : game.title}</div>
-        <div style={{ color: T.meta, fontSize: 11, marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
-          <Icon name="star" size={10} color={T.accent} /> {game.score.toFixed(2)}
-          <span style={{ color: T.metaDim }}>· {game.year}</span>
-        </div>
-        <div style={{ color: T.metaDim, fontSize: 11, marginTop: 1 }}>{fmt(members(game))} members</div>
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "26px 0 12px" }}>
+        <h2 style={{ fontFamily: display, fontWeight: 600, fontSize: 16, color: T.text, letterSpacing: "-0.01em" }}>{title}</h2>
+        <button onClick={onViewMore}
+          style={{ color: T.link, fontSize: 12, fontWeight: 500, cursor: "pointer", background: "none", border: "none" }}>
+          View More
+        </button>
       </div>
-      <button
-        onClick={() => onOpen(game)}
-        style={{
-          position: "absolute", top: 11, right: 12, fontSize: 11, fontWeight: 500,
-          color: T.link, background: T.btn, border: `1px solid ${T.borderH}`,
-          borderRadius: 6, padding: "2px 9px", cursor: "pointer", lineHeight: 1.6,
-        }}
-      >add</button>
+
+      <div style={{ position: "relative" }}>
+        <div ref={ref} onScroll={update} className="gv-hscroll"
+          style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
+          {games.map(g => (
+            <div key={g.id} style={{ flex: "0 0 calc((100% - 70px) / 5.5)" }}>
+              <GameCard game={g} onOpen={onOpen} />
+            </div>
+          ))}
+        </div>
+        {hover && !atStart && <ArrowBtn dir="left" onClick={() => scroll(-1)} />}
+        {hover && !atEnd && <ArrowBtn dir="right" onClick={() => scroll(1)} />}
+      </div>
     </div>
   );
 }

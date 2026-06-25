@@ -1,17 +1,14 @@
-import RankRow from "./RankRow";
-import { display, useT } from "../theme";
-import type { Game } from "../types";
+import { type ReactNode } from "react";
+import Icon from "./Icon";
+import { display, useT } from "./theme";
 
-export default function SidebarPanel({ title, games, onOpen, onMore }: { title: string; games: Game[]; onOpen: (g: Game) => void; onMore: () => void }) {
+export default function Stat({ icon = null, label, value }: { icon?: string | null; label: ReactNode; value: ReactNode }) {
   const T = useT();
   return (
-    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 12, marginBottom: 18, overflow: "hidden" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px" }}>
-        <span style={{ fontFamily: display, color: T.text, fontWeight: 600, fontSize: 13.5, letterSpacing: "-0.01em" }}>{title}</span>
-        <button onClick={onMore} style={{ color: T.link, fontSize: 11.5, fontWeight: 500, cursor: "pointer", background: "none", border: "none", padding: 0 }}>More</button>
-      </div>
-      <div>
-        {games.map((g, i) => <RankRow key={g.id} rank={i + 1} game={g} onOpen={onOpen} />)}
+    <div>
+      <div style={{ color: T.metaDim, fontSize: 11, fontWeight: 500, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: display, color: T.text, fontWeight: 600, fontSize: 18, display: "flex", alignItems: "center", gap: 5 }}>
+        {icon && <Icon name={icon} size={15} color={T.accent} />}{value}
       </div>
     </div>
   );

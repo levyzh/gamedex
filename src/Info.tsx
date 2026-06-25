@@ -1,19 +1,12 @@
-import Icon from "./Icon";
-import { useT } from "../theme";
+import { type ReactNode } from "react";
+import { useT } from "./theme";
 
-// ─── Carousel row (4.5 cards, hover arrows, View More) ─────────────────────────
-export default function ArrowBtn({ dir, onClick }: { dir: "left" | "right"; onClick: () => void }) {
+export default function Info({ label, value, last = false }: { label: ReactNode; value: ReactNode; last?: boolean }) {
   const T = useT();
   return (
-    <button onClick={onClick} aria-label={dir === "left" ? "Previous" : "Next"}
-      style={{
-        position: "absolute", top: "42%", transform: "translateY(-50%)",
-        [dir]: -8, width: 38, height: 38, borderRadius: "50%",
-        border: `1px solid ${T.borderH}`, background: T.surface, color: T.text,
-        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: T.shadowH, zIndex: 5,
-      }}>
-      <Icon name={dir === "left" ? "back" : "next"} size={18} />
-    </button>
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: last ? "none" : `1px solid ${T.border}` }}>
+      <span style={{ color: T.metaDim }}>{label}</span>
+      <span style={{ color: T.text, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{value}</span>
+    </div>
   );
 }

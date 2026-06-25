@@ -1,74 +1,34 @@
-import type { CategoryDef, Game, RawGame } from "./types";
+import { useContext, createContext, type CSSProperties } from "react";
 
-export const fmt = (n: number) =>
-  n >= 1_000_000 ? (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M"
-  : n >= 1000 ? (n / 1000).toFixed(0) + "K" : String(n);
-
-// ─── RAWG API (live game data) ─────────────────────────────────────────────────
-// NOTE: before pushing to GitHub, move this key into a .env file (VITE_RAWG_KEY)
-// so it isn't committed publicly. In Stage 3 the backend will hide it entirely.
-export const RAWG_KEY = "***REMOVED***";
-
-export const RAWG = "https://api.rawg.io/api";
-
-export const FALLBACK_COVER = "linear-gradient(135deg,#1f2433,#3a4358)";
-
-// Flag genuinely adult / NSFW games (hentai, eroge, porn) so we can blur them.
-// We deliberately DON'T use the ESRB 18+ rating or broad tags like "nudity" /
-// "sexual-content" — those also catch mainstream Mature games (The Witcher 3,
-// GTA, Cyberpunk). We only match tags that signal a dedicated adult game.
-export const ADULT_TAGS = new Set(["nsfw", "hentai", "eroge"]);
-
-export function isAdult(r: RawGame) {
-  return (r.tags || []).some(t => ADULT_TAGS.has(t.slug));
-}
-
-export function mapGame(r: RawGame): Game {
-  const year = r.released ? Number(r.released.slice(0, 4)) : null;
-  const score = r.metacritic ? r.metacritic / 10 : (r.rating ? r.rating * 2 : 0);
-  return {
-    id: r.id,
-    title: r.name,
-    year: year || "—",
-    score: Number(score.toFixed(2)),
-    genre: (r.genres && r.genres.length) ? r.genres.map(g => g.name) : ["Unknown"],
-    cover: r.background_image || null,
-    members: r.added || r.ratings_count || 0,
-    userRating: r.rating || 0,        // average RAWG user rating (0–5)
-    ratingsCount: r.ratings_count || 0, // how many users rated it
-    genreSlugs: (r.genres || []).map(x => x.slug),
-    tagSlugs: (r.tags || []).map(x => x.slug),
-    platformIds: (r.parent_platforms || []).map(x => String(x.platform.id)),
-    adult: isAdult(r),
-    dev: "",        // filled in on the detail page
-    synopsis: "",   // filled in on the detail page
-  };
-}
-
-export const members = (g: Game) => g.members || 0;
-
-// Shared category definitions — used by both the home rows and the "View More" pages
-// so they always pull the same kind of games.
-export const dateWindow = (daysBack: number) => {
-  const today = new Date();
-  const f = (d: Date) => d.toISOString().slice(0, 10);
-  return `${f(new Date(today.getTime() - daysBack * 86400000))},${f(today)}`;
+// ─── Themes (dark default + light) ─────────────────────────────────────────────
+export const THEMES = {
+  dark: {
+    bg: "#000000", surface: "#121214", panel: "#121214", card: "#121214", cardH: "#1B1B20",
+    accent: "#818CF8", accentSoft: "rgba(129,140,248,0.14)", link: "#818CF8", nav: "#818CF8",
+    text: "#F4F4F5", textBody: "#C9CCD2", meta: "#9CA0A8", metaDim: "#5C606A", rank: "#3A3D44",
+    border: "rgba(255,255,255,0.09)", borderH: "rgba(255,255,255,0.18)", btn: "#1B1B20",
+    chipBg: "rgba(255,255,255,0.05)", headerBg: "rgba(0,0,0,0.72)",
+    shadow: "0 1px 2px rgba(0,0,0,0.4)", shadowH: "0 12px 28px rgba(0,0,0,0.55)", scheme: "dark",
+  },
+  light: {
+    bg: "#FBFBFA", surface: "#FFFFFF", panel: "#FFFFFF", card: "#FFFFFF", cardH: "#F6F6F5",
+    accent: "#4F46E5", accentSoft: "rgba(79,70,229,0.08)", link: "#4F46E5", nav: "#4F46E5",
+    text: "#16161A", textBody: "#3A3D44", meta: "#6E7178", metaDim: "#A1A4AB", rank: "#C2C5CC",
+    border: "rgba(17,17,17,0.08)", borderH: "rgba(17,17,17,0.14)", btn: "#FFFFFF",
+    chipBg: "rgba(0,0,0,0.03)", headerBg: "rgba(255,255,255,0.85)",
+    shadow: "0 1px 2px rgba(17,17,17,0.04)", shadowH: "0 10px 24px rgba(17,17,17,0.10)", scheme: "light",
+  },
 };
 
-export const CATEGORY: Record<string, CategoryDef> = {
-  popular:   { title: "Popular Right Now",    query: () => `dates=${dateWindow(365)}&ordering=-added` },
-  fresh:     { title: "New Releases",         query: () => `dates=${dateWindow(120)}&ordering=-added` },
-  acclaimed: { title: "Critically Acclaimed", query: () => `ordering=-metacritic` },
-  // Both sidebar lists draw from the pool of most-added (genuinely popular) games,
-  // then rank that pool differently — by user rating vs by number of reviews.
-  // This avoids RAWG's "-rating" junk problem (1-vote 5.0 games topping the list).
-  topRated:  { title: "Top Ranked",  query: () => `ordering=-added`,
-               refine: (l) => [...l].sort((a, b) => b.userRating - a.userRating) },
-  reviewed:  { title: "Most Popular", query: () => `ordering=-added`,
-               refine: (l) => [...l].sort((a, b) => b.ratingsCount - a.ratingsCount) },
-};
+export const ThemeCtx = createContext(THEMES.dark);
 
-// Cover can be a real image URL (from RAWG) or null → fall back to a gradient.
-export const coverBg = (g: Game) => g.cover
-  ? { backgroundImage: `url(${g.cover})`, backgroundSize: "cover", backgroundPosition: "center" }
-  : { background: FALLBACK_COVER };
+export const useT = () => useContext(ThemeCtx);
+
+export const display = "'Space Grotesk', sans-serif";
+
+export const body = "'Inter', sans-serif";
+
+export const clamp2: CSSProperties = {
+  display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+  overflow: "hidden", textOverflow: "ellipsis",
+};
