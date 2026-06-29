@@ -11,7 +11,7 @@ export default function SidebarPanel({ title, games, onOpen, onMore }: { title: 
         <button onClick={onMore} style={{ color: T.link, fontSize: 11.5, fontWeight: 500, cursor: "pointer", background: "none", border: "none", padding: 0 }}>More</button>
       </div>
       <div>
-        {games.map((g, i) => <RankRow key={g.id} rank={i + 1} game={g} onOpen={onOpen} />)}
+        {games.map((game, index) => <RankRow key={game.id} rank={index + 1} game={game} onOpen={onOpen} />)}
       </div>
     </div>
   );

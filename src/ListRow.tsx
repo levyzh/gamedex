@@ -12,9 +12,12 @@ export default function ListRow({ index, game, entry, onOpen, onRemove, onSave }
   const [hours, setHours] = useState(entry.hours || 0);
   const [confirming, setConfirming] = useState(false); // two-step remove confirm
 
-  // Keep local fields in sync if the entry changes elsewhere.
-  useEffect(() => { setStatus(entry.status); setScore(entry.score || 0); setHours(entry.hours || 0); },
-    [entry.status, entry.score, entry.hours]);
+  // Keep the local fields in sync if this entry changes elsewhere.
+  useEffect(() => {
+    setStatus(entry.status);
+    setScore(entry.score || 0);
+    setHours(entry.hours || 0);
+  }, [entry.status, entry.score, entry.hours]);
 
   const commit = (next: Partial<Entry>) => onSave({
     gameId: game.id, game,
@@ -41,7 +44,7 @@ export default function ListRow({ index, game, entry, onOpen, onRemove, onSave }
       <td style={cell}>
         <select value={status} onChange={(e) => { setStatus(e.target.value); commit({ status: e.target.value }); }}
           style={{ ...fieldBase, color: STATUS_COLOR[status], fontWeight: 500 }}>
-          {STATUSES.map(s => <option key={s} value={s} style={{ color: T.text }}>{s}</option>)}
+          {STATUSES.map(statusName => <option key={statusName} value={statusName} style={{ color: T.text }}>{statusName}</option>)}
         </select>
       </td>
       <td style={{ ...cell, textAlign: "center" }}>

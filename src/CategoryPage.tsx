@@ -8,7 +8,7 @@ import type { Game } from "./types";
 // ─── Category page ("View More" → Browse-style grid with pagination) ───────────
 export default function CategoryPage({ categoryKey, onBack, onOpen }: { categoryKey: string; onBack: () => void; onOpen: (g: Game) => void }) {
   const T = useT();
-  const cat = CATEGORY[categoryKey];
+  const category = CATEGORY[categoryKey];
   const [games, setGames] = useState<Game[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -16,32 +16,58 @@ export default function CategoryPage({ categoryKey, onBack, onOpen }: { category
   const [error, setError] = useState<string | null>(null);
   const [hasNext, setHasNext] = useState(false);
 
-  const fetchPage = (p: number) =>
-    fetch(`${RAWG}/games?key=${RAWG_KEY}&${cat.query()}&page_size=40&page=${p}`)
-      .then(r => { if (!r.ok) throw new Error("RAWG responded with " + r.status); return r.json(); });
+  // Fetch one page of this category's games from RAWG.
+  const fetchPage = async (pageNum: number) => {
+    const response = await fetch(`${RAWG}/games?key=${RAWG_KEY}&${category.query()}&page_size=40&page=${pageNum}`);
+    if (!response.ok) {
+      throw new Error("RAWG responded with " + response.status);
+    }
+    return response.json();
+  };
 
+  // Load the first page whenever the category changes.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true); setError(null); setGames([]); setPage(1);
+    setLoading(true);
+    setError(null);
+    setGames([]);
+    setPage(1);
+
     fetchPage(1)
-      .then(d => { if (cancelled) return; const mapped: Game[] = (d.results || []).map(mapGame); setGames(cat.refine ? cat.refine(mapped) : mapped); setHasNext(!!d.next); setLoading(false); })
-      .catch(e => { if (!cancelled) { setError(e.message); setLoading(false); } });
+      .then(data => {
+        if (cancelled) return;
+        const mapped: Game[] = (data.results || []).map(mapGame);
+        // Some categories re-rank their results (see CATEGORY in rawg.ts).
+        setGames(category.refine ? category.refine(mapped) : mapped);
+        setHasNext(!!data.next);
+        setLoading(false);
+      })
+      .catch(e => {
+        if (!cancelled) {
+          setError(e.message);
+          setLoading(false);
+        }
+      });
+
     return () => { cancelled = true; };
   }, [categoryKey]);
 
   const loadMore = () => {
-    const next = page + 1;
+    const nextPage = page + 1;
     setLoadingMore(true);
-    fetchPage(next)
-      .then(d => {
-        const mapped: Game[] = (d.results || []).map(mapGame);
+
+    fetchPage(nextPage)
+      .then(data => {
+        const mapped: Game[] = (data.results || []).map(mapGame);
         setGames(prev => {
-          const seen = new Set(prev.map(g => g.id));
-          const merged = [...prev, ...mapped.filter(g => !seen.has(g.id))];
-          return cat.refine ? cat.refine(merged) : merged;
+          // Append only games we don't already have, then re-rank if needed.
+          const existingIds = new Set(prev.map(game => game.id));
+          const newGames = mapped.filter(game => !existingIds.has(game.id));
+          const merged = [...prev, ...newGames];
+          return category.refine ? category.refine(merged) : merged;
         });
-        setHasNext(!!d.next);
-        setPage(next);
+        setHasNext(!!data.next);
+        setPage(nextPage);
         setLoadingMore(false);
       })
       .catch(() => setLoadingMore(false));
@@ -52,7 +78,7 @@ export default function CategoryPage({ categoryKey, onBack, onOpen }: { category
       <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: T.meta, fontSize: 13, cursor: "pointer", padding: "16px 0 8px" }}>
         <Icon name="back" size={15} /> Back
       </button>
-      <h1 style={{ fontFamily: display, fontWeight: 700, fontSize: 22, color: T.text, letterSpacing: "-0.02em" }}>{cat.title}</h1>
+      <h1 style={{ fontFamily: display, fontWeight: 700, fontSize: 22, color: T.text, letterSpacing: "-0.02em" }}>{category.title}</h1>
 
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, color: T.meta, fontSize: 14, padding: "50px 0" }}>
@@ -65,7 +91,7 @@ export default function CategoryPage({ categoryKey, onBack, onOpen }: { category
         <>
           <div style={{ fontSize: 12, color: T.metaDim, margin: "16px 0 14px" }}>{games.length} loaded</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 20 }}>
-            {games.map(g => <GameCard key={g.id} game={g} onOpen={onOpen} />)}
+            {games.map(game => <GameCard key={game.id} game={game} onOpen={onOpen} />)}
           </div>
           {hasNext && (
             <div style={{ textAlign: "center", padding: "28px 0 8px" }}>

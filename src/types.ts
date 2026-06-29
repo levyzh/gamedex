@@ -1,6 +1,3 @@
-import { STATUSES } from "./constants";
-import { RAWG, mapGame } from "./rawg";
-
 // The raw shape RAWG's API returns for a game — the external, messy format.
 // mapGame() is the boundary that converts this into our clean Game type.
 export interface RawGame {

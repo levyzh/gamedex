@@ -38,7 +38,7 @@ export default function ListPage({ listMap, onOpen, onRemove, onSave }: { listMa
           <span style={{ fontSize: 11.5, color: T.metaDim, fontWeight: 500 }}>Sort by</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)}
             style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${T.borderH}`, background: T.surface, color: T.text, fontSize: 12.5, fontWeight: 500, cursor: "pointer", colorScheme: T.scheme }}>
-            {Object.entries(LIST_SORTERS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {Object.entries(LIST_SORTERS).map(([key, sorter]) => <option key={key} value={key}>{sorter.label}</option>)}
           </select>
         </div>
       </div>

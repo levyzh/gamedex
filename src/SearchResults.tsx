@@ -22,7 +22,7 @@ export default function SearchResults({ query, results, loading, error, onOpen }
         <>
           <div style={{ fontSize: 12, color: T.metaDim, margin: "14px 0" }}>{results.length} {results.length === 1 ? "result" : "results"}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 20, paddingBottom: 20 }}>
-            {results.map(g => <GameCard key={g.id} game={g} onOpen={onOpen} />)}
+            {results.map(game => <GameCard key={game.id} game={game} onOpen={onOpen} />)}
           </div>
         </>
       ) : (

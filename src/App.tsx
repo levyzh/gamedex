@@ -37,25 +37,37 @@ export default function App() {
   const loadGames = () => {
     setLoading(true);
     setError(null);
-    const get = (qs: string) =>
-      fetch(`${RAWG}/games?key=${RAWG_KEY}&${qs}`)
-        .then(r => { if (!r.ok) throw new Error("RAWG responded with " + r.status); return r.json(); })
-        .then(d => (d.results || []).map(mapGame));
+
+    // Fetch a RAWG games query and return the results mapped to our Game shape.
+    const getGames = async (queryString: string): Promise<Game[]> => {
+      const response = await fetch(`${RAWG}/games?key=${RAWG_KEY}&${queryString}`);
+      if (!response.ok) {
+        throw new Error("RAWG responded with " + response.status);
+      }
+      const data = await response.json();
+      return (data.results || []).map(mapGame);
+    };
+
     Promise.all([
-      get(`${CATEGORY.popular.query()}&page_size=12`),
-      get(`${CATEGORY.fresh.query()}&page_size=12`),
-      get(`${CATEGORY.acclaimed.query()}&page_size=12`),
-      get(`ordering=-added&page_size=40`), // shared pool of popular games for both sidebar lists
+      getGames(`${CATEGORY.popular.query()}&page_size=12`),
+      getGames(`${CATEGORY.fresh.query()}&page_size=12`),
+      getGames(`${CATEGORY.acclaimed.query()}&page_size=12`),
+      getGames(`ordering=-added&page_size=40`), // one shared pool of popular games for both sidebar lists
     ])
       .then(([popular, fresh, acclaimed, pool]) => {
         setFeed({
-          popular, fresh, acclaimed,
+          popular,
+          fresh,
+          acclaimed,
           topRated: CATEGORY.topRated.refine?.(pool) || pool, // same pool, ranked by user rating
           reviewed: CATEGORY.reviewed.refine?.(pool) || pool, // same pool, ranked by review count
         });
         setLoading(false);
       })
-      .catch(e => { setError(e.message); setLoading(false); });
+      .catch(e => {
+        setError(e.message);
+        setLoading(false);
+      });
   };
 
   useEffect(() => { loadGames(); }, []);
@@ -63,45 +75,105 @@ export default function App() {
   // Debounced search: wait until the user pauses typing, then ask RAWG to
   // search its entire database. AbortController cancels stale in-flight requests.
   useEffect(() => {
-    const q = query.trim();
-    if (!q) { setSearchResults([]); setSearching(false); setSearchError(null); return; }
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      setSearching(false);
+      setSearchError(null);
+      return;
+    }
+
     setSearching(true);
     setSearchError(null);
-    const ctrl = new AbortController();
+    const controller = new AbortController();
+
     const timer = setTimeout(() => {
-      fetch(`${RAWG}/games?key=${RAWG_KEY}&search=${encodeURIComponent(q)}&page_size=40`, { signal: ctrl.signal })
-        .then(r => { if (!r.ok) throw new Error("RAWG responded with " + r.status); return r.json(); })
-        .then(data => { setSearchResults((data.results || []).map(mapGame)); setSearching(false); })
-        .catch(e => { if (e.name !== "AbortError") { setSearchError(e.message); setSearching(false); } });
+      fetch(`${RAWG}/games?key=${RAWG_KEY}&search=${encodeURIComponent(trimmedQuery)}&page_size=40`, { signal: controller.signal })
+        .then(response => {
+          if (!response.ok) throw new Error("RAWG responded with " + response.status);
+          return response.json();
+        })
+        .then(data => {
+          setSearchResults((data.results || []).map(mapGame));
+          setSearching(false);
+        })
+        .catch(e => {
+          // Ignore the error we cause ourselves by aborting a stale request.
+          if (e.name !== "AbortError") {
+            setSearchError(e.message);
+            setSearching(false);
+          }
+        });
     }, 400);
-    return () => { clearTimeout(timer); ctrl.abort(); };
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   useEffect(() => {
     if (typeof document !== "undefined") document.body.style.background = T.bg;
   }, [T.bg]);
 
-  const listMap = useMemo(() => Object.fromEntries(userList.map(e => [e.gameId, e])), [userList]);
+  const listMap = useMemo(
+    () => Object.fromEntries(userList.map(entry => [entry.gameId, entry])),
+    [userList],
+  );
 
   // Combined, de-duplicated set of everything we've loaded (for Browse + rank lookups)
   const allGames = useMemo(() => {
-    const m = new Map();
-    [...feed.popular, ...feed.fresh, ...feed.acclaimed, ...feed.topRated, ...feed.reviewed].forEach(g => m.set(g.id, g));
-    return [...m.values()];
+    const byId = new Map<number, Game>();
+    const everything = [...feed.popular, ...feed.fresh, ...feed.acclaimed, ...feed.topRated, ...feed.reviewed];
+    for (const game of everything) {
+      byId.set(game.id, game);
+    }
+    return [...byId.values()];
   }, [feed]);
 
-  const open = (g: Game) => { setSelGame(g); setPage("detail"); window.scrollTo(0, 0); };
-  const openCategory = (key: string) => { setCategory(key); setPage("category"); window.scrollTo(0, 0); };
-  const goHome = () => { setSelGame(null); setQuery(""); setPage("home"); };
-  const goBack = () => { setSelGame(null); setPage(query.trim() ? page : "home"); };
+  const open = (game: Game) => {
+    setSelGame(game);
+    setPage("detail");
+    window.scrollTo(0, 0);
+  };
+
+  const openCategory = (key: string) => {
+    setCategory(key);
+    setPage("category");
+    window.scrollTo(0, 0);
+  };
+
+  const goHome = () => {
+    setSelGame(null);
+    setQuery("");
+    setPage("home");
+  };
+
+  const goBack = () => {
+    setSelGame(null);
+    // If a search is active, stay on the current page; otherwise go home.
+    setPage(query.trim() ? page : "home");
+  };
+
+  // Update the search box, clearing any open detail view once a query is typed.
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    if (value) {
+      setSelGame(null);
+      if (page === "detail") setPage("home");
+    }
+  };
 
   const saveEntry = (entry: Entry) => {
     setUserList(prev => {
-      const without = prev.filter(e => e.gameId !== entry.gameId);
-      return [...without, entry];
+      const withoutThisGame = prev.filter(existing => existing.gameId !== entry.gameId);
+      return [...withoutThisGame, entry];
     });
   };
-  const removeEntry = (id: number) => setUserList(prev => prev.filter(e => e.gameId !== id));
+
+  const removeEntry = (id: number) => {
+    setUserList(prev => prev.filter(entry => entry.gameId !== id));
+  };
 
   const topRanked = feed.topRated.slice(0, 5);   // highest user rating among popular games
   const mostPopular = feed.reviewed.slice(0, 5);  // most reviewed of all time
@@ -146,7 +218,7 @@ export default function App() {
                 <span style={{ position: "absolute", left: 11, display: "flex", color: T.metaDim }}><Icon name="search" size={15} /></span>
                 <input
                   value={query}
-                  onChange={(e) => { const v = e.target.value; setQuery(v); if (v) { setSelGame(null); if (page === "detail") setPage("home"); } }}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder="Search games"
                   style={{ width: 200, padding: "8px 12px 8px 34px", borderRadius: 9, border: `1px solid ${T.borderH}`, background: T.surface, fontSize: 13, color: T.text, outline: "none", colorScheme: T.scheme }}
                 />

@@ -11,17 +11,18 @@ export default function CategoryRow({ title, games, onOpen, onViewMore }: { titl
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
 
-  const update = () => {
-    const el = ref.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 1);
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+  // Show/hide the scroll arrows depending on how far the row is scrolled.
+  const updateArrows = () => {
+    const scroller = ref.current;
+    if (!scroller) return;
+    setAtStart(scroller.scrollLeft <= 1);
+    setAtEnd(scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1);
   };
-  useEffect(() => { update(); }, [games]);
+  useEffect(() => { updateArrows(); }, [games]);
 
   const scroll = (dir: number) => {
-    const el = ref.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
+    const scroller = ref.current;
+    if (scroller) scroller.scrollBy({ left: dir * scroller.clientWidth * 0.85, behavior: "smooth" });
   };
 
   if (!games || !games.length) return null;
@@ -37,11 +38,11 @@ export default function CategoryRow({ title, games, onOpen, onViewMore }: { titl
       </div>
 
       <div style={{ position: "relative" }}>
-        <div ref={ref} onScroll={update} className="gv-hscroll"
+        <div ref={ref} onScroll={updateArrows} className="gv-hscroll"
           style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
-          {games.map(g => (
-            <div key={g.id} style={{ flex: "0 0 calc((100% - 70px) / 5.5)" }}>
-              <GameCard game={g} onOpen={onOpen} />
+          {games.map(game => (
+            <div key={game.id} style={{ flex: "0 0 calc((100% - 70px) / 5.5)" }}>
+              <GameCard game={game} onOpen={onOpen} />
             </div>
           ))}
         </div>

@@ -1,8 +1,16 @@
 import type { CategoryDef, Game, RawGame } from "./types";
 
-export const fmt = (n: number) =>
-  n >= 1_000_000 ? (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M"
-  : n >= 1000 ? (n / 1000).toFixed(0) + "K" : String(n);
+// Format a big number compactly: 1500 → "1.5K", 2_000_000 → "2M".
+export function fmt(n: number) {
+  if (n >= 1_000_000) {
+    const millions = (n / 1_000_000).toFixed(1).replace(/\.0$/, ""); // drop a trailing ".0"
+    return millions + "M";
+  }
+  if (n >= 1000) {
+    return (n / 1000).toFixed(0) + "K";
+  }
+  return String(n);
+}
 
 // ─── RAWG API (live game data) ─────────────────────────────────────────────────
 // NOTE: before pushing to GitHub, move this key into a .env file (VITE_RAWG_KEY)
@@ -19,56 +27,97 @@ export const FALLBACK_COVER = "linear-gradient(135deg,#1f2433,#3a4358)";
 // GTA, Cyberpunk). We only match tags that signal a dedicated adult game.
 export const ADULT_TAGS = new Set(["nsfw", "hentai", "eroge"]);
 
-export function isAdult(r: RawGame) {
-  return (r.tags || []).some(t => ADULT_TAGS.has(t.slug));
+export function isAdult(raw: RawGame) {
+  const tags = raw.tags || [];
+  return tags.some(tag => ADULT_TAGS.has(tag.slug));
 }
 
-export function mapGame(r: RawGame): Game {
-  const year = r.released ? Number(r.released.slice(0, 4)) : null;
-  const score = r.metacritic ? r.metacritic / 10 : (r.rating ? r.rating * 2 : 0);
+// Turn one raw RAWG record into the clean Game shape the rest of the app uses.
+export function mapGame(raw: RawGame): Game {
+  // RAWG gives a release date like "2017-03-03"; we only want the year number.
+  let year: number | string = "—";
+  if (raw.released) {
+    const parsedYear = Number(raw.released.slice(0, 4));
+    if (parsedYear) year = parsedYear; // keep "—" if the date can't be parsed
+  }
+
+  // Prefer the critic score (Metacritic is 0–100, so divide to land on 0–10).
+  // If there's no critic score, fall back to the user rating (0–5, so double it).
+  // If neither exists, leave it at 0.
+  let score = 0;
+  if (raw.metacritic) {
+    score = raw.metacritic / 10;
+  } else if (raw.rating) {
+    score = raw.rating * 2;
+  }
+
+  // Genres arrive as objects; we just want their names. Default to ["Unknown"].
+  let genreNames = ["Unknown"];
+  if (raw.genres && raw.genres.length > 0) {
+    genreNames = raw.genres.map(genre => genre.name);
+  }
+
   return {
-    id: r.id,
-    title: r.name,
-    year: year || "—",
+    id: raw.id,
+    title: raw.name,
+    year: year,
     score: Number(score.toFixed(2)),
-    genre: (r.genres && r.genres.length) ? r.genres.map(g => g.name) : ["Unknown"],
-    cover: r.background_image || null,
-    members: r.added || r.ratings_count || 0,
-    userRating: r.rating || 0,        // average RAWG user rating (0–5)
-    ratingsCount: r.ratings_count || 0, // how many users rated it
-    genreSlugs: (r.genres || []).map(x => x.slug),
-    tagSlugs: (r.tags || []).map(x => x.slug),
-    platformIds: (r.parent_platforms || []).map(x => String(x.platform.id)),
-    adult: isAdult(r),
+    genre: genreNames,
+    cover: raw.background_image || null,
+    members: raw.added || raw.ratings_count || 0,
+    userRating: raw.rating || 0,          // average RAWG user rating (0–5)
+    ratingsCount: raw.ratings_count || 0, // how many users rated it
+    genreSlugs: (raw.genres || []).map(genre => genre.slug),
+    tagSlugs: (raw.tags || []).map(tag => tag.slug),
+    platformIds: (raw.parent_platforms || []).map(parent => String(parent.platform.id)),
+    adult: isAdult(raw),
     dev: "",        // filled in on the detail page
     synopsis: "",   // filled in on the detail page
   };
 }
 
-export const members = (g: Game) => g.members || 0;
+export const members = (game: Game) => game.members || 0;
 
-// Shared category definitions — used by both the home rows and the "View More" pages
-// so they always pull the same kind of games.
-export const dateWindow = (daysBack: number) => {
+// Build a RAWG "dates=START,END" range covering the last `daysBack` days.
+export function dateWindow(daysBack: number) {
+  const toYMD = (date: Date) => date.toISOString().slice(0, 10); // e.g. "2024-06-01"
   const today = new Date();
-  const f = (d: Date) => d.toISOString().slice(0, 10);
-  return `${f(new Date(today.getTime() - daysBack * 86400000))},${f(today)}`;
-};
+  const oneDayMs = 86_400_000;
+  const past = new Date(today.getTime() - daysBack * oneDayMs);
+  return `${toYMD(past)},${toYMD(today)}`;
+}
 
+// Shared category definitions — used by both the home rows and the "View More"
+// pages so they always pull the same kind of games.
 export const CATEGORY: Record<string, CategoryDef> = {
   popular:   { title: "Popular Right Now",    query: () => `dates=${dateWindow(365)}&ordering=-added` },
   fresh:     { title: "New Releases",         query: () => `dates=${dateWindow(120)}&ordering=-added` },
   acclaimed: { title: "Critically Acclaimed", query: () => `ordering=-metacritic` },
-  // Both sidebar lists draw from the pool of most-added (genuinely popular) games,
-  // then rank that pool differently — by user rating vs by number of reviews.
+
+  // Both sidebar lists draw from the same pool of most-added (genuinely popular)
+  // games, then rank that pool differently — by user rating vs. number of reviews.
   // This avoids RAWG's "-rating" junk problem (1-vote 5.0 games topping the list).
-  topRated:  { title: "Top Ranked",  query: () => `ordering=-added`,
-               refine: (l) => [...l].sort((a, b) => b.userRating - a.userRating) },
-  reviewed:  { title: "Most Popular", query: () => `ordering=-added`,
-               refine: (l) => [...l].sort((a, b) => b.ratingsCount - a.ratingsCount) },
+  topRated: {
+    title: "Top Ranked",
+    query: () => `ordering=-added`,
+    refine: (games) => [...games].sort((a, b) => b.userRating - a.userRating),
+  },
+  reviewed: {
+    title: "Most Popular",
+    query: () => `ordering=-added`,
+    refine: (games) => [...games].sort((a, b) => b.ratingsCount - a.ratingsCount),
+  },
 };
 
-// Cover can be a real image URL (from RAWG) or null → fall back to a gradient.
-export const coverBg = (g: Game) => g.cover
-  ? { backgroundImage: `url(${g.cover})`, backgroundSize: "cover", backgroundPosition: "center" }
-  : { background: FALLBACK_COVER };
+// A game's cover is either a real image URL or null. Return the matching CSS
+// background either way — a gradient fallback when there's no image.
+export function coverBg(game: Game) {
+  if (game.cover) {
+    return {
+      backgroundImage: `url(${game.cover})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    };
+  }
+  return { background: FALLBACK_COVER };
+}

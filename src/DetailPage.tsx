@@ -14,29 +14,40 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
   const [status, setStatus] = useState(entry?.status || "Plan to Play");
   const [score, setScore] = useState(entry?.score ?? 0);
   const [hours, setHours] = useState(entry?.hours ?? 0);
-  // Synopsis + developer aren't in the list data, so fetch the full record here.
+
+  // The synopsis and developer aren't in the list data, so fetch the full
+  // record for this game here.
   const [extra, setExtra] = useState({ dev: "", synopsis: "", loading: true });
+
   const field: CSSProperties = { width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 8, border: `1px solid ${T.borderH}`, fontSize: 13, color: T.text, background: T.surface, colorScheme: T.scheme };
 
   useEffect(() => {
     let cancelled = false;
     setExtra({ dev: "", synopsis: "", loading: true });
+
     fetch(`${RAWG}/games/${game.id}?key=${RAWG_KEY}`)
-      .then(r => r.json())
-      .then(d => {
+      .then(response => response.json())
+      .then(data => {
         if (cancelled) return;
         setExtra({
-          dev: (d.developers && d.developers[0] && d.developers[0].name) || "Unknown",
-          synopsis: d.description_raw || "No description available for this game.",
+          dev: data.developers?.[0]?.name || "Unknown",
+          synopsis: data.description_raw || "No description available for this game.",
           loading: false,
         });
       })
-      .catch(() => { if (!cancelled) setExtra({ dev: "Unknown", synopsis: "Couldn't load the description.", loading: false }); });
+      .catch(() => {
+        if (!cancelled) {
+          setExtra({ dev: "Unknown", synopsis: "Couldn't load the description.", loading: false });
+        }
+      });
+
     return () => { cancelled = true; };
   }, [game.id]);
 
-  const rankIdx = games.slice().sort((a, b) => b.score - a.score).findIndex(g => g.id === game.id);
-  const rankLabel = rankIdx >= 0 ? "#" + (rankIdx + 1) : "—";
+  // Rank this game against the others currently loaded, best score first.
+  const ranked = games.slice().sort((a, b) => b.score - a.score);
+  const rankIndex = ranked.findIndex(other => other.id === game.id);
+  const rankLabel = rankIndex >= 0 ? "#" + (rankIndex + 1) : "—";
 
   return (
     <div>
@@ -54,7 +65,7 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
 
             <label style={{ fontSize: 11, color: T.meta, fontWeight: 500 }}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ ...field, marginBottom: 12 }}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
+              {STATUSES.map(statusName => <option key={statusName}>{statusName}</option>)}
             </select>
 
             <label style={{ fontSize: 11, color: T.meta, fontWeight: 500 }}>Your score</label>
@@ -104,8 +115,8 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
 
           <SectionHeader title="Genres" />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {game.genre.map(g => (
-              <span key={g} style={{ fontSize: 12, color: T.text, background: T.cardH, border: `1px solid ${T.border}`, borderRadius: 999, padding: "5px 12px" }}>{g}</span>
+            {game.genre.map(genre => (
+              <span key={genre} style={{ fontSize: 12, color: T.text, background: T.cardH, border: `1px solid ${T.border}`, borderRadius: 999, padding: "5px 12px" }}>{genre}</span>
             ))}
           </div>
         </div>
