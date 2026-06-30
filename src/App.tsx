@@ -9,6 +9,7 @@ import DetailPage from "./DetailPage";
 import ListPage from "./ListPage";
 import SearchResults from "./SearchResults";
 import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
+import { fetchList, postEntry, deleteEntry } from "./api";
 import { THEMES, ThemeCtx, body, display } from "./theme";
 import type { Entry, Game } from "./types";
 
@@ -71,6 +72,15 @@ export default function App() {
   };
 
   useEffect(() => { loadGames(); }, []);
+
+  // Load the saved list from our backend once, when the app starts. If the
+  // backend isn't running we just log it — the app still works, the list is
+  // simply empty until the server is up.
+  useEffect(() => {
+    fetchList()
+      .then(setUserList)
+      .catch(err => console.error("Could not load list from server:", err));
+  }, []);
 
   // Debounced search: wait until the user pauses typing, then ask RAWG to
   // search its entire database. AbortController cancels stale in-flight requests.
@@ -165,14 +175,18 @@ export default function App() {
   };
 
   const saveEntry = (entry: Entry) => {
+    // Update the screen right away (optimistic), then save to the backend in
+    // the background so the change survives a refresh.
     setUserList(prev => {
       const withoutThisGame = prev.filter(existing => existing.gameId !== entry.gameId);
       return [...withoutThisGame, entry];
     });
+    postEntry(entry).catch(err => console.error("Could not save entry:", err));
   };
 
   const removeEntry = (id: number) => {
     setUserList(prev => prev.filter(entry => entry.gameId !== id));
+    deleteEntry(id).catch(err => console.error("Could not remove entry:", err));
   };
 
   const topRanked = feed.topRated.slice(0, 5);   // highest user rating among popular games

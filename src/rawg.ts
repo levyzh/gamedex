@@ -13,9 +13,17 @@ export function fmt(n: number) {
 }
 
 // ─── RAWG API (live game data) ─────────────────────────────────────────────────
-// NOTE: before pushing to GitHub, move this key into a .env file (VITE_RAWG_KEY)
-// so it isn't committed publicly. In Stage 3 the backend will hide it entirely.
-export const RAWG_KEY = "***REMOVED***";
+// The API key now comes from a .env file instead of living in the source. Vite
+// only exposes variables prefixed with VITE_ to the browser, so the variable
+// must be named VITE_RAWG_KEY. Create a .env file in the project root with:
+//   VITE_RAWG_KEY=your_key_here
+export const RAWG_KEY = import.meta.env.VITE_RAWG_KEY;
+
+// Fail loudly in development if the key is missing, so a blank or absent .env
+// surfaces one clear message instead of a wall of failed RAWG requests.
+if (!RAWG_KEY) {
+  console.error("Missing VITE_RAWG_KEY — create a .env file with your RAWG API key (see .env.example).");
+}
 
 export const RAWG = "https://api.rawg.io/api";
 
