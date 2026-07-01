@@ -12,6 +12,11 @@ import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
 import { fetchList, postEntry, deleteEntry } from "./api";
 import { THEMES, ThemeCtx, body, display } from "./theme";
 import type { Entry, Game } from "./types";
+// New for accounts: the session type from Supabase, our auth helpers,
+// and the login/signup form we show when nobody is logged in.
+import type { Session } from "@supabase/supabase-js";
+import { watchSession, signOut } from "./auth";
+import { AuthForm } from "./AuthForm";
 
 // ─── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -24,6 +29,14 @@ export default function App() {
   const [category, setCategory] = useState<string | null>(null); // active "View More" category key
   const [userList, setUserList] = useState<Entry[]>([]);
   const [showWelcome, setShowWelcome] = useState(true);
+
+  // Who is logged in? An object when someone is, null when nobody is.
+  const [session, setSession] = useState<Session | null>(null);
+  // On page load there's a brief moment before Supabase has told us the
+  // answer. Without this flag we'd flash the login form at an
+  // already-logged-in user for a split second. So "still checking" is
+  // tracked separately from "checked, and nobody's logged in".
+  const [checkingSession, setCheckingSession] = useState(true);
 
   // Live game data from RAWG — three distinct lists for the home feed
   const [feed, setFeed] = useState<{ popular: Game[]; fresh: Game[]; acclaimed: Game[]; topRated: Game[]; reviewed: Game[] }>({ popular: [], fresh: [], acclaimed: [], topRated: [], reviewed: [] });
@@ -73,14 +86,36 @@ export default function App() {
 
   useEffect(() => { loadGames(); }, []);
 
-  // Load the saved list from our backend once, when the app starts. If the
-  // backend isn't running we just log it — the app still works, the list is
-  // simply empty until the server is up.
+  // Start listening for login/logout the moment the app mounts.
+  // Supabase calls us back immediately with the current answer (that's
+  // what ends the "checking" phase), then again on every login/logout.
   useEffect(() => {
+    const stopWatching = watchSession((newSession) => {
+      setSession(newSession);
+      setCheckingSession(false);
+    });
+
+    // React calls this when App unmounts — we stop listening politely,
+    // the same cleanup pattern as removeEventListener.
+    return stopWatching;
+  }, []);
+
+  // Load the saved list whenever the logged-in user changes.
+  // This used to run once on startup, but now the list belongs to a
+  // person, not to the browser — so we wait for a session before asking,
+  // and we re-run on login/logout (the [session] dependency below).
+  useEffect(() => {
+    // Nobody logged in → there is no list to load. Clear whatever is on
+    // screen so one user's games never linger after they log out.
+    if (!session) {
+      setUserList([]);
+      return;
+    }
+
     fetchList()
       .then(setUserList)
-      .catch(err => console.error("Could not load list from server:", err));
-  }, []);
+      .catch(err => console.error("Could not load list:", err));
+  }, [session]);
 
   // Debounced search: wait until the user pauses typing, then ask RAWG to
   // search its entire database. AbortController cancels stale in-flight requests.
@@ -210,6 +245,37 @@ export default function App() {
     );
   };
 
+  // ─── The login gate ─────────────────────────────────────────────────────────
+  // These early returns MUST live below every hook above (React requires
+  // hooks to run in the same order on every render) and above the main
+  // return. While logged out, nothing below this block renders at all.
+
+  // Still waiting to hear from Supabase — show a quiet holding screen
+  // instead of flashing the login form at someone who's already logged in.
+  if (checkingSession) {
+    return (
+      <ThemeCtx.Provider value={T}>
+        <div style={{ minHeight: "100vh", background: T.bg, fontFamily: body, color: T.text, colorScheme: T.scheme, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ color: T.meta, fontSize: 14 }}>Checking your session…</div>
+        </div>
+      </ThemeCtx.Provider>
+    );
+  }
+
+  // We heard back, and nobody is logged in — show the form and nothing else.
+  // Note there's no "on success" prop being passed: when a login succeeds,
+  // watchSession fires, session state updates, App re-renders, and this
+  // branch simply stops being taken. The subscription is the messenger.
+  if (!session) {
+    return (
+      <ThemeCtx.Provider value={T}>
+        <div style={{ minHeight: "100vh", background: T.bg, fontFamily: body, color: T.text, colorScheme: T.scheme, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <AuthForm />
+        </div>
+      </ThemeCtx.Provider>
+    );
+  }
+
   return (
     <ThemeCtx.Provider value={T}>
       <div style={{ minHeight: "100vh", background: T.bg, fontFamily: body, color: T.text, colorScheme: T.scheme }}>
@@ -250,6 +316,22 @@ export default function App() {
                 }}
               >
                 <Icon name={dark ? "sun" : "moon"} size={17} color={T.text} />
+              </button>
+
+              {/* Log out — only ever visible when logged in, because the
+                  login gate above returns early for logged-out visitors.
+                  signOut clears the saved session, watchSession hears the
+                  change, and the gate takes over again. */}
+              <button
+                onClick={() => signOut().catch(err => console.error("Could not log out:", err))}
+                title="Log out of your account"
+                style={{
+                  height: 36, padding: "0 14px", borderRadius: 9, flexShrink: 0,
+                  border: `1px solid ${T.borderH}`, background: T.surface, color: T.meta,
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                }}
+              >
+                Log out
               </button>
             </div>
           </div>
