@@ -56,9 +56,15 @@ export function validateComment(content: string): string | null {
 // AND its likes.
 //
 // The select string is now a THREE-table query: "*" = all comment
-// columns, "profiles(...)" = follow that foreign key for the author, and
-// "comment_likes(user_id)" = follow the OTHER foreign key (the one
-// pointing back at comments) and bring every like's user_id along.
+// columns, the profiles embed for the author, and "comment_likes(user_id)"
+// = follow the foreign key pointing back at comments and bring every
+// like's user_id along.
+//
+// Note the "!user_id" on profiles: since comment_likes points at BOTH
+// comments and profiles, there are now TWO roads from a comment to
+// profiles — the author (via user_id) and the likers (via the likes
+// table). Supabase refuses to guess which we mean, so "!user_id" names
+// the road: the profile reached through the user_id column = the author.
 //
 // Honest tradeoff, flagged: embedding every like scales with how liked
 // a comment is — perfect at this project's size, and if a comment ever
@@ -67,7 +73,7 @@ export function validateComment(content: string): string | null {
 export async function fetchComments(gameId: number, myUserId: string | null): Promise<Comment[]> {
   const { data, error } = await supabase
     .from("comments")
-    .select("*, profiles(username, avatar_url), comment_likes(user_id)")
+    .select("*, profiles!user_id(username, avatar_url), comment_likes(user_id)")
     .eq("game_id", gameId)
     .order("created_at", { ascending: false });
 

@@ -61,7 +61,17 @@ export interface Profile {
   username: string;        // unique, lowercase, 3-20 chars
   bio: string;             // always a string, "" when unset (never null)
   avatarUrl: string | null; // filled in when we do Storage in Stage B
+  listPublic: boolean;     // may strangers see this user's game list?
   createdAt: string;       // when the account was made
+}
+
+// The LIGHT profile shape — just enough to draw a row (follower lists,
+// people search) and link to the full page. Fetching bios and settings
+// for fifty rows nobody asked about would be waste.
+export interface ProfileSummary {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
 }
 
 // ─── Comments (Stage C) ─────────────────────────────────────────────────────────
@@ -80,4 +90,14 @@ export interface Comment {
     username: string;
     avatarUrl: string | null;
   };
+}
+
+// ─── Follows (Stage D) ──────────────────────────────────────────────────────────
+// The numbers a user page shows about someone's social standing, plus
+// the one personal question: does the LOGGED-IN user follow them?
+export interface FollowStats {
+  followers: number;     // how many people follow this user
+  following: number;     // how many this user follows
+  followedByMe: boolean; // do I follow them? (false when logged out)
+  followsMe: boolean;    // do they follow ME? (false when logged out)
 }

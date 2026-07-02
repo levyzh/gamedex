@@ -7,27 +7,39 @@ import BrowsePage from "./BrowsePage";
 import CategoryPage from "./CategoryPage";
 import DetailPage from "./DetailPage";
 import ListPage from "./ListPage";
-import ProfilePage from "./ProfilePage";
+import SettingsPage from "./SettingsPage";
+import UserPage from "./UserPage";
 import SearchResults from "./SearchResults";
 import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
 import { fetchList, postEntry, deleteEntry } from "./api";
 import { THEMES, ThemeCtx, body, display } from "./theme";
-import type { Entry, Game } from "./types";
+import type { Entry, Game, ProfileSummary } from "./types";
 // New for accounts: the session type from Supabase, our auth helpers,
 // and the login/signup form we show when nobody is logged in.
 import type { Session } from "@supabase/supabase-js";
-import { watchSession, signOut } from "./auth";
+import { watchSession } from "./auth";
+import { searchProfiles } from "./profiles";
 import { AuthForm } from "./AuthForm";
 
 // ─── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [dark, setDark] = useState(true);
+  // The theme, remembered across visits. localStorage only holds
+  // strings, so we store "dark"/"light"; anything else (including a
+  // first visit, where the key doesn't exist) means the default: dark.
+  const [dark, setDark] = useState(() => localStorage.getItem("gv-theme") !== "light");
   const T = dark ? THEMES.dark : THEMES.light;
+
+  // Write the choice back whenever it changes, so the next visit opens
+  // the way this one looked.
+  useEffect(() => {
+    localStorage.setItem("gv-theme", dark ? "dark" : "light");
+  }, [dark]);
 
   const [page, setPage] = useState("home");
   const [query, setQuery] = useState("");
   const [selGame, setSelGame] = useState<Game | null>(null); // full game object (works for catalog or search hits)
   const [category, setCategory] = useState<string | null>(null); // active "View More" category key
+  const [viewedUserId, setViewedUserId] = useState<string | null>(null); // whose public page is open
   const [userList, setUserList] = useState<Entry[]>([]);
   const [showWelcome, setShowWelcome] = useState(true);
 
@@ -54,6 +66,9 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<Game[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  // People matching the search, shown above the games. Kept separate
+  // from the game results so one source failing can't blank the other.
+  const [peopleResults, setPeopleResults] = useState<ProfileSummary[]>([]);
 
   const loadGames = () => {
     setLoading(true);
@@ -125,7 +140,7 @@ export default function App() {
       return;
     }
 
-    fetchList()
+    fetchList(session.user.id)
       .then(setUserList)
       .catch(err => console.error("Could not load list:", err));
   }, [session]);
@@ -136,6 +151,7 @@ export default function App() {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
       setSearchResults([]);
+      setPeopleResults([]);
       setSearching(false);
       setSearchError(null);
       return;
@@ -146,6 +162,17 @@ export default function App() {
     const controller = new AbortController();
 
     const timer = setTimeout(() => {
+      // The same pause-in-typing also searches usernames. Honest
+      // tradeoff, flagged: a people-search failure only logs to the
+      // console — blanking the whole results page because the PEOPLE
+      // half hiccuped would punish the common case (searching games).
+      searchProfiles(trimmedQuery)
+        .then(setPeopleResults)
+        .catch(err => {
+          console.error("People search failed:", err);
+          setPeopleResults([]);
+        });
+
       fetch(`${RAWG}/games?key=${RAWG_KEY}&search=${encodeURIComponent(trimmedQuery)}&page_size=40`, { signal: controller.signal })
         .then(response => {
           if (!response.ok) throw new Error("RAWG responded with " + response.status);
@@ -198,6 +225,14 @@ export default function App() {
   const openCategory = (key: string) => {
     setCategory(key);
     setPage("category");
+    window.scrollTo(0, 0);
+  };
+
+  // Open someone's public page — from a comment author's name today,
+  // from follower lists or anywhere else tomorrow.
+  const openUser = (userId: string) => {
+    setViewedUserId(userId);
+    setPage("user");
     window.scrollTo(0, 0);
   };
 
@@ -322,14 +357,12 @@ export default function App() {
                      logged-in user never sees "Log in" flash on page load.
                   2. Logged out → Log in (quiet) + Sign up (accent) buttons.
                      They open the same modal, just in different modes.
-                  3. Logged in → Log out. signOut clears the session,
-                     watchSession hears it, and this slot re-renders itself. */}
+                  3. Logged in → your profile + settings. (Log out lives
+                     inside Settings now, keeping the header lean.) */}
               {checkingSession ? null : session ? (
                 <>
-                {/* Your profile — same square style as the theme toggle.
-                    Only rendered when logged in, since it edits YOUR row. */}
                 <button
-                  onClick={() => { setSelGame(null); setQuery(""); setPage("profile"); }}
+                  onClick={() => { setSelGame(null); setQuery(""); openUser(session.user.id); }}
                   title="Your profile"
                   aria-label="Your profile"
                   style={{
@@ -338,18 +371,21 @@ export default function App() {
                     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
                   }}
                 >
-                  <Icon name="user" size={17} color={page === "profile" ? T.accent : T.text} />
+                  {/* Lit when you're on your OWN page — someone else's
+                      user page shouldn't light up "your profile". */}
+                  <Icon name="user" size={17} color={page === "user" && viewedUserId === session.user.id ? T.accent : T.text} />
                 </button>
                 <button
-                  onClick={() => signOut().catch(err => console.error("Could not log out:", err))}
-                  title="Log out of your account"
+                  onClick={() => { setSelGame(null); setQuery(""); setPage("settings"); }}
+                  title="Settings"
+                  aria-label="Settings"
                   style={{
-                    height: 36, padding: "0 14px", borderRadius: 9, flexShrink: 0,
-                    border: `1px solid ${T.borderH}`, background: T.surface, color: T.meta,
-                    fontSize: 13, fontWeight: 500, cursor: "pointer",
+                    width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                    border: `1px solid ${T.borderH}`, background: T.surface, color: T.text,
+                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
                   }}
                 >
-                  Log out
+                  <Icon name="settings" size={17} color={page === "settings" ? T.accent : T.text} />
                 </button>
                 </>
               ) : (
@@ -383,9 +419,21 @@ export default function App() {
         {/* Body */}
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 60px" }}>
           {(page === "detail" && selGame) ? (
-            <DetailPage game={selGame} entry={listMap[selGame.id]} games={allGames} onBack={goBack} onSave={saveEntry} onRemove={removeEntry} myUserId={session ? session.user.id : null} onRequireLogin={() => setAuthMode("signup")} />
+            <DetailPage game={selGame} entry={listMap[selGame.id]} games={allGames} onBack={goBack} onSave={saveEntry} onRemove={removeEntry} myUserId={session ? session.user.id : null} onRequireLogin={() => setAuthMode("signup")} onOpenUser={openUser} />
+          ) : page === "user" && viewedUserId ? (
+            <UserPage
+              userId={viewedUserId}
+              myUserId={session ? session.user.id : null}
+              onOpen={open}
+              onOpenUser={openUser}
+              onOpenSettings={() => setPage("settings")}
+              onRequireLogin={() => setAuthMode("signup")}
+              // Back goes to the game you came from if one is open,
+              // otherwise home — we have no routing history (yet).
+              onBack={() => setPage(selGame ? "detail" : "home")}
+            />
           ) : query.trim() ? (
-            <SearchResults query={query.trim()} results={searchResults} loading={searching} error={searchError} onOpen={open} />
+            <SearchResults query={query.trim()} results={searchResults} loading={searching} error={searchError} onOpen={open} people={peopleResults} onOpenUser={openUser} />
           ) : page === "category" && category ? (
             <CategoryPage categoryKey={category} onBack={goHome} onOpen={open} />
           ) : loading ? (
@@ -404,8 +452,8 @@ export default function App() {
                 Try again
               </button>
             </div>
-          ) : page === "profile" && session ? (
-            <ProfilePage userId={session.user.id} />
+          ) : page === "settings" && session ? (
+            <SettingsPage userId={session.user.id} userEmail={session.user.email ?? ""} dark={dark} onToggleDark={() => setDark(d => !d)} />
           ) : page === "list" ? (
             <div style={{ paddingTop: 8 }}>
               <ListPage listMap={listMap} onOpen={open} onRemove={removeEntry} onSave={saveEntry} />

@@ -38,10 +38,18 @@ function entryToRow(entry: Entry) {
   };
 }
 
-// Load the logged-in user's whole list. Called whenever a session appears.
-// No WHERE clause for the user — RLS already narrows this to their rows.
-export async function fetchList(): Promise<Entry[]> {
-  const { data, error } = await supabase.from("list").select("*");
+// Load ONE user's whole list — yours or anyone's.
+//
+// HISTORY NOTE 2: this used to take no argument and let RLS narrow the
+// select to the logged-in user's rows. Stage D added a public-read
+// policy to the list table (that's what makes friends' lists visible),
+// which means RLS no longer narrows READS — a bare select now returns
+// everyone's rows mixed together. So we must say whose list we want.
+// The upside: the same function now serves both "my list" (App passes
+// your id) and "their list" (a user page passes theirs). Writes are
+// still owner-only; only reading went public.
+export async function fetchList(userId: string): Promise<Entry[]> {
+  const { data, error } = await supabase.from("list").select("*").eq("user_id", userId);
 
   // supabase-js doesn't throw on failure; it hands back an error object.
   // We turn that into a real thrown Error with a readable message.

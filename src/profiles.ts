@@ -19,6 +19,7 @@ function rowToProfile(row: any): Profile {
     username: row.username,
     bio: row.bio,
     avatarUrl: row.avatar_url,
+    listPublic: row.list_public,
     createdAt: row.created_at,
   };
 }
@@ -59,7 +60,7 @@ export async function fetchProfile(userId: string): Promise<Profile> {
 // it can only ever be their own.
 export async function updateProfile(
   userId: string,
-  changes: { username: string; bio: string }
+  changes: { username: string; bio: string; listPublic: boolean }
 ): Promise<void> {
   // Fail loudly BEFORE the network trip if the username breaks the rule.
   const problem = validateUsername(changes.username);
@@ -69,7 +70,7 @@ export async function updateProfile(
 
   const { error } = await supabase
     .from("profiles")
-    .update({ username: changes.username, bio: changes.bio })
+    .update({ username: changes.username, bio: changes.bio, list_public: changes.listPublic })
     .eq("id", userId);
 
   if (error) {
@@ -132,4 +133,35 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   }
 
   return url;
+}
+
+// Find people by username — the search box's "People" results.
+//
+// ilike = case-insensitive pattern match; the %s around the term mean
+// "anywhere in the name", so "kir" finds "kira" and "shakira" alike.
+// We strip % and _ from the term itself first because those characters
+// are wildcards in patterns — a user typing them should find usernames,
+// not accidentally write their own pattern.
+export async function searchProfiles(term: string): Promise<import("./types").ProfileSummary[]> {
+  const cleaned = term.trim().replace(/[%_]/g, "");
+  if (cleaned.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url")
+    .ilike("username", `%${cleaned}%`)
+    .order("username")
+    .limit(20); // a search box wants the best few, not the whole town
+
+  if (error) {
+    throw new Error(`Couldn't search people: ${error.message}`);
+  }
+
+  return (data ?? []).map(row => ({
+    id: row.id,
+    username: row.username,
+    avatarUrl: row.avatar_url,
+  }));
 }

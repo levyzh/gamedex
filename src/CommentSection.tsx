@@ -22,10 +22,12 @@ export default function CommentSection({
   gameId,
   myUserId,
   onRequireLogin,
+  onOpenUser,
 }: {
   gameId: number;
   myUserId: string | null;
   onRequireLogin: () => void;
+  onOpenUser: (userId: string) => void; // click an author → their page
 }) {
   const T = useT();
 
@@ -273,9 +275,14 @@ export default function CommentSection({
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 600, fontSize: 13.5, color: T.text }}>
+                  {/* The author's name is a door to their page — the
+                      social web's oldest link. */}
+                  <button
+                    onClick={() => onOpenUser(comment.userId)}
+                    style={{ background: "none", border: "none", padding: 0, fontWeight: 600, fontSize: 13.5, color: T.text, cursor: "pointer", fontFamily: "inherit" }}
+                  >
                     {comment.author.username}
-                  </span>
+                  </button>
                   <span style={{ fontSize: 11.5, color: T.metaDim }} title={new Date(comment.createdAt).toLocaleString()}>
                     {timeAgo(comment.createdAt)}
                   </span>

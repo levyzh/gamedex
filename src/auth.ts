@@ -39,6 +39,22 @@ export async function signOut(): Promise<void> {
   }
 }
 
+// Change the logged-in user's password. Supabase doesn't ask for the
+// old one — possessing a valid session IS the proof of who you are.
+// (Same 6-character floor Supabase enforces at signup, checked here
+// first so the form can say it in plain words.)
+export async function changePassword(newPassword: string): Promise<void> {
+  if (newPassword.length < 6) {
+    throw new Error("Passwords need at least 6 characters.");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+  if (error) {
+    throw new Error(`Couldn't change the password: ${error.message}`);
+  }
+}
+
 // Watch for login/logout, and report changes to whoever asked.
 //
 // WHY this exists: the app needs to answer "is someone logged in RIGHT

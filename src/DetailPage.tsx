@@ -13,7 +13,7 @@ import CommentSection from "./CommentSection";
 // myUserId + onRequireLogin exist for the comment section: who is
 // logged in (null = nobody), and how to open the login form when a
 // logged-out visitor tries to join the discussion.
-export default function DetailPage({ game, entry, games, onBack, onSave, onRemove, myUserId, onRequireLogin }: { game: Game; entry?: Entry; games: Game[]; onBack: () => void; onSave: (e: Entry) => void; onRemove: (id: number) => void; myUserId: string | null; onRequireLogin: () => void }) {
+export default function DetailPage({ game, entry, games, onBack, onSave, onRemove, myUserId, onRequireLogin, onOpenUser }: { game: Game; entry?: Entry; games: Game[]; onBack: () => void; onSave: (e: Entry) => void; onRemove: (id: number) => void; myUserId: string | null; onRequireLogin: () => void; onOpenUser: (userId: string) => void }) {
   const T = useT();
   const [status, setStatus] = useState(entry?.status || "Plan to Play");
   const [score, setScore] = useState(entry?.score ?? 0);
@@ -127,7 +127,7 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
       </div>
 
       {/* ── Community comments ──────────────────────────────────────── */}
-      <CommentSection gameId={game.id} myUserId={myUserId} onRequireLogin={onRequireLogin} />
+      <CommentSection gameId={game.id} myUserId={myUserId} onRequireLogin={onRequireLogin} onOpenUser={onOpenUser} />
     </div>
   );
 }
