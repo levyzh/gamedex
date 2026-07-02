@@ -31,12 +31,18 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(true);
 
   // Who is logged in? An object when someone is, null when nobody is.
+  // Note the app is NOT gated on this anymore — anyone can browse. The
+  // session only decides which header buttons you see and whether saves work.
   const [session, setSession] = useState<Session | null>(null);
   // On page load there's a brief moment before Supabase has told us the
-  // answer. Without this flag we'd flash the login form at an
-  // already-logged-in user for a split second. So "still checking" is
-  // tracked separately from "checked, and nobody's logged in".
+  // answer. During it we show NEITHER "Log in" nor "Log out" in the
+  // header, so a logged-in user never sees the wrong button flash by.
   const [checkingSession, setCheckingSession] = useState(true);
+
+  // Is the login/signup modal open, and in which mode? null means closed.
+  // Set to "signin" or "signup" by the header buttons (and by trying to
+  // save a game while logged out).
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
 
   // Live game data from RAWG — three distinct lists for the home feed
   const [feed, setFeed] = useState<{ popular: Game[]; fresh: Game[]; acclaimed: Game[]; topRated: Game[]; reviewed: Game[] }>({ popular: [], fresh: [], acclaimed: [], topRated: [], reviewed: [] });
@@ -93,6 +99,12 @@ export default function App() {
     const stopWatching = watchSession((newSession) => {
       setSession(newSession);
       setCheckingSession(false);
+      // A session appearing means a login just succeeded (or was found in
+      // storage) — close the modal. AuthForm still needs no callback; the
+      // subscription is the messenger, same as always.
+      if (newSession) {
+        setAuthMode(null);
+      }
     });
 
     // React calls this when App unmounts — we stop listening politely,
@@ -210,6 +222,15 @@ export default function App() {
   };
 
   const saveEntry = (entry: Entry) => {
+    // Saving needs an account — the list lives in the user's own rows in
+    // Supabase. If nobody is logged in, open the signup form instead of
+    // letting the request fail; their click told us exactly what they
+    // want to do, they just need an account to do it.
+    if (!session) {
+      setAuthMode("signup");
+      return;
+    }
+
     // Update the screen right away (optimistic), then save to the backend in
     // the background so the change survives a refresh.
     setUserList(prev => {
@@ -220,6 +241,14 @@ export default function App() {
   };
 
   const removeEntry = (id: number) => {
+    // Same guard as saveEntry. Logged-out users have no entries to remove
+    // anyway, so this is belt-and-suspenders — but failing loudly toward
+    // "log in" beats failing silently toward the console.
+    if (!session) {
+      setAuthMode("signin");
+      return;
+    }
+
     setUserList(prev => prev.filter(entry => entry.gameId !== id));
     deleteEntry(id).catch(err => console.error("Could not remove entry:", err));
   };
@@ -244,37 +273,6 @@ export default function App() {
       </button>
     );
   };
-
-  // ─── The login gate ─────────────────────────────────────────────────────────
-  // These early returns MUST live below every hook above (React requires
-  // hooks to run in the same order on every render) and above the main
-  // return. While logged out, nothing below this block renders at all.
-
-  // Still waiting to hear from Supabase — show a quiet holding screen
-  // instead of flashing the login form at someone who's already logged in.
-  if (checkingSession) {
-    return (
-      <ThemeCtx.Provider value={T}>
-        <div style={{ minHeight: "100vh", background: T.bg, fontFamily: body, color: T.text, colorScheme: T.scheme, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ color: T.meta, fontSize: 14 }}>Checking your session…</div>
-        </div>
-      </ThemeCtx.Provider>
-    );
-  }
-
-  // We heard back, and nobody is logged in — show the form and nothing else.
-  // Note there's no "on success" prop being passed: when a login succeeds,
-  // watchSession fires, session state updates, App re-renders, and this
-  // branch simply stops being taken. The subscription is the messenger.
-  if (!session) {
-    return (
-      <ThemeCtx.Provider value={T}>
-        <div style={{ minHeight: "100vh", background: T.bg, fontFamily: body, color: T.text, colorScheme: T.scheme, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <AuthForm />
-        </div>
-      </ThemeCtx.Provider>
-    );
-  }
 
   return (
     <ThemeCtx.Provider value={T}>
@@ -318,21 +316,49 @@ export default function App() {
                 <Icon name={dark ? "sun" : "moon"} size={17} color={T.text} />
               </button>
 
-              {/* Log out — only ever visible when logged in, because the
-                  login gate above returns early for logged-out visitors.
-                  signOut clears the saved session, watchSession hears the
-                  change, and the gate takes over again. */}
-              <button
-                onClick={() => signOut().catch(err => console.error("Could not log out:", err))}
-                title="Log out of your account"
-                style={{
-                  height: 36, padding: "0 14px", borderRadius: 9, flexShrink: 0,
-                  border: `1px solid ${T.borderH}`, background: T.surface, color: T.meta,
-                  fontSize: 13, fontWeight: 500, cursor: "pointer",
-                }}
-              >
-                Log out
-              </button>
+              {/* Account corner — a three-way slot:
+                  1. Still waiting to hear from Supabase → show nothing, so a
+                     logged-in user never sees "Log in" flash on page load.
+                  2. Logged out → Log in (quiet) + Sign up (accent) buttons.
+                     They open the same modal, just in different modes.
+                  3. Logged in → Log out. signOut clears the session,
+                     watchSession hears it, and this slot re-renders itself. */}
+              {checkingSession ? null : session ? (
+                <button
+                  onClick={() => signOut().catch(err => console.error("Could not log out:", err))}
+                  title="Log out of your account"
+                  style={{
+                    height: 36, padding: "0 14px", borderRadius: 9, flexShrink: 0,
+                    border: `1px solid ${T.borderH}`, background: T.surface, color: T.meta,
+                    fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  }}
+                >
+                  Log out
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setAuthMode("signin")}
+                    style={{
+                      height: 36, padding: "0 14px", borderRadius: 9, flexShrink: 0,
+                      border: `1px solid ${T.borderH}`, background: T.surface, color: T.text,
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                    }}
+                  >
+                    Log in
+                  </button>
+                  <button
+                    onClick={() => setAuthMode("signup")}
+                    style={{
+                      height: 36, padding: "0 14px", borderRadius: 9, flexShrink: 0,
+                      border: "none", background: T.accent, color: "#fff",
+                      fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    }}
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -387,6 +413,28 @@ export default function App() {
             <a href="https://rawg.io" target="_blank" rel="noopener noreferrer" style={{ color: T.link, fontWeight: 500 }}>RAWG</a>
           </span>
         </footer>
+
+        {/* The login/signup modal — rendered on top of everything when a
+            header button (or a logged-out save attempt) opens it.
+            Clicking the dark backdrop closes it; clicking inside the card
+            does NOT, because the inner div stops the click from bubbling
+            up to the backdrop's onClick. The key={authMode} makes React
+            rebuild the form when switching between Log in and Sign up, so
+            it always opens in the mode the button promised. */}
+        {authMode && (
+          <div
+            onClick={() => setAuthMode(null)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 100,
+              background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+              display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+            }}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 360 }}>
+              <AuthForm key={authMode} startMode={authMode} />
+            </div>
+          </div>
+        )}
       </div>
     </ThemeCtx.Provider>
   );

@@ -61,7 +61,7 @@ export async function postEntry(entry: Entry): Promise<void> {
   const { error } = await supabase.from("list").upsert(entryToRow(entry));
 
   if (error) {
-    throw new Error(`Couldn't save "${entry.game.name}": ${error.message}`);
+    throw new Error(`Couldn't save "${entry.game.title}": ${error.message}`);
   }
 }
 
