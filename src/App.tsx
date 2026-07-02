@@ -7,6 +7,7 @@ import BrowsePage from "./BrowsePage";
 import CategoryPage from "./CategoryPage";
 import DetailPage from "./DetailPage";
 import ListPage from "./ListPage";
+import ProfilePage from "./ProfilePage";
 import SearchResults from "./SearchResults";
 import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
 import { fetchList, postEntry, deleteEntry } from "./api";
@@ -324,6 +325,21 @@ export default function App() {
                   3. Logged in → Log out. signOut clears the session,
                      watchSession hears it, and this slot re-renders itself. */}
               {checkingSession ? null : session ? (
+                <>
+                {/* Your profile — same square style as the theme toggle.
+                    Only rendered when logged in, since it edits YOUR row. */}
+                <button
+                  onClick={() => { setSelGame(null); setQuery(""); setPage("profile"); }}
+                  title="Your profile"
+                  aria-label="Your profile"
+                  style={{
+                    width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                    border: `1px solid ${T.borderH}`, background: T.surface, color: T.text,
+                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                  }}
+                >
+                  <Icon name="user" size={17} color={page === "profile" ? T.accent : T.text} />
+                </button>
                 <button
                   onClick={() => signOut().catch(err => console.error("Could not log out:", err))}
                   title="Log out of your account"
@@ -335,6 +351,7 @@ export default function App() {
                 >
                   Log out
                 </button>
+                </>
               ) : (
                 <>
                   <button
@@ -366,7 +383,7 @@ export default function App() {
         {/* Body */}
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 60px" }}>
           {(page === "detail" && selGame) ? (
-            <DetailPage game={selGame} entry={listMap[selGame.id]} games={allGames} onBack={goBack} onSave={saveEntry} onRemove={removeEntry} />
+            <DetailPage game={selGame} entry={listMap[selGame.id]} games={allGames} onBack={goBack} onSave={saveEntry} onRemove={removeEntry} myUserId={session ? session.user.id : null} onRequireLogin={() => setAuthMode("signup")} />
           ) : query.trim() ? (
             <SearchResults query={query.trim()} results={searchResults} loading={searching} error={searchError} onOpen={open} />
           ) : page === "category" && category ? (
@@ -387,6 +404,8 @@ export default function App() {
                 Try again
               </button>
             </div>
+          ) : page === "profile" && session ? (
+            <ProfilePage userId={session.user.id} />
           ) : page === "list" ? (
             <div style={{ paddingTop: 8 }}>
               <ListPage listMap={listMap} onOpen={open} onRemove={removeEntry} onSave={saveEntry} />
@@ -423,7 +442,12 @@ export default function App() {
             it always opens in the mode the button promised. */}
         {authMode && (
           <div
-            onClick={() => setAuthMode(null)}
+            // Close only when the PRESS itself lands on the backdrop. A
+            // plain onClick has a trap: press inside the card, release
+            // outside (e.g. a long drag-select over a text field), and
+            // the browser fires the click on the backdrop — closing the
+            // form mid-typing. Same fix as the avatar cropper's backdrop.
+            onPointerDown={(e) => { if (e.target === e.currentTarget) setAuthMode(null); }}
             style={{
               position: "fixed", inset: 0, zIndex: 100,
               background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",

@@ -7,9 +7,13 @@ import { STATUSES } from "./constants";
 import { RAWG, RAWG_KEY, coverBg, fmt, members } from "./rawg";
 import { display, useT } from "./theme";
 import type { Entry, Game } from "./types";
+import CommentSection from "./CommentSection";
 
 // ─── Detail page ───────────────────────────────────────────────────────────────
-export default function DetailPage({ game, entry, games, onBack, onSave, onRemove }: { game: Game; entry?: Entry; games: Game[]; onBack: () => void; onSave: (e: Entry) => void; onRemove: (id: number) => void }) {
+// myUserId + onRequireLogin exist for the comment section: who is
+// logged in (null = nobody), and how to open the login form when a
+// logged-out visitor tries to join the discussion.
+export default function DetailPage({ game, entry, games, onBack, onSave, onRemove, myUserId, onRequireLogin }: { game: Game; entry?: Entry; games: Game[]; onBack: () => void; onSave: (e: Entry) => void; onRemove: (id: number) => void; myUserId: string | null; onRequireLogin: () => void }) {
   const T = useT();
   const [status, setStatus] = useState(entry?.status || "Plan to Play");
   const [score, setScore] = useState(entry?.score ?? 0);
@@ -121,6 +125,9 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
           </div>
         </div>
       </div>
+
+      {/* ── Community comments ──────────────────────────────────────── */}
+      <CommentSection gameId={game.id} myUserId={myUserId} onRequireLogin={onRequireLogin} />
     </div>
   );
 }
