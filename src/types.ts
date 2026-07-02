@@ -52,3 +52,32 @@ export interface FilterOption { type: string; value: string; name: string; count
 
 // ─── My List page ──────────────────────────────────────────────────────────────
 export interface ListItem { game: Game; entry: Entry; }
+
+// ─── Profiles (Stage A) ─────────────────────────────────────────────────────────
+// A user's PUBLIC identity — what other people see. Mirrors the `profiles`
+// table in Supabase. Never contains private things like the email address.
+export interface Profile {
+  id: string;              // same uuid as the auth account it belongs to
+  username: string;        // unique, lowercase, 3-20 chars
+  bio: string;             // always a string, "" when unset (never null)
+  avatarUrl: string | null; // filled in when we do Storage in Stage B
+  createdAt: string;       // when the account was made
+}
+
+// ─── Comments (Stage C) ─────────────────────────────────────────────────────────
+// One comment under a game, WITH its author's public profile attached —
+// the shape our two-table query returns, translated to camelCase.
+export interface Comment {
+  id: number;
+  userId: string;   // whose it is — how the UI knows to offer YOU edit/delete
+  gameId: number;
+  content: string;
+  createdAt: string;
+  editedAt: string | null; // null = never edited; a date = show "(edited)"
+  likeCount: number;       // how many people liked it
+  likedByMe: boolean;      // ...and whether the logged-in user is one of them
+  author: {
+    username: string;
+    avatarUrl: string | null;
+  };
+}
