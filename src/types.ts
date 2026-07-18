@@ -101,3 +101,18 @@ export interface FollowStats {
   followedByMe: boolean; // do I follow them? (false when logged out)
   followsMe: boolean;    // do they follow ME? (false when logged out)
 }
+
+// ─── The feed ───────────────────────────────────────────────────────────────────
+// One event in the home feed: someone you follow added a game.
+export interface FeedItem {
+  userId: string;
+  gameId: number;
+  game: Game;      // the stored jsonb — already our Game shape
+  status: string;
+  score: number;
+  addedAt: string; // when they added it — what the feed sorts by
+  author: {
+    username: string;
+    avatarUrl: string | null;
+  };
+}

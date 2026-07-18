@@ -1,25 +1,53 @@
 import "./styles";
 import { useState, useMemo, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
 import Icon from "./Icon";
 import SidebarPanel from "./SidebarPanel";
 import HomePage from "./HomePage";
 import BrowsePage from "./BrowsePage";
 import CategoryPage from "./CategoryPage";
-import DetailPage from "./DetailPage";
+import GameRoute from "./GameRoute";
 import ListPage from "./ListPage";
-import SettingsPage from "./SettingsPage";
-import UserPage from "./UserPage";
 import SearchResults from "./SearchResults";
+import UserPage from "./UserPage";
+import SettingsPage from "./SettingsPage";
+import FeedSection from "./FeedSection";
 import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
 import { fetchList, postEntry, deleteEntry } from "./api";
 import { THEMES, ThemeCtx, body, display } from "./theme";
 import type { Entry, Game, ProfileSummary } from "./types";
-// New for accounts: the session type from Supabase, our auth helpers,
-// and the login/signup form we show when nobody is logged in.
 import type { Session } from "@supabase/supabase-js";
 import { watchSession } from "./auth";
 import { searchProfiles } from "./profiles";
 import { AuthForm } from "./AuthForm";
+
+// ─── Route wrappers ────────────────────────────────────────────────────────────
+// Small module-level components that read a URL parameter and hand it to
+// the real page. They live OUTSIDE App on purpose: a component defined
+// inside another gets recreated on every render, which makes React tear
+// it down and remount it — state lost, effects refiring. Out here their
+// identity is stable.
+
+// /user/:id → UserPage
+function UserRoute(props: {
+  myUserId: string | null;
+  onOpen: (game: Game) => void;
+  onOpenUser: (userId: string) => void;
+  onOpenSettings: () => void;
+  onRequireLogin: () => void;
+  onBack: () => void;
+}) {
+  const { id } = useParams();
+  if (!id) return <Navigate to="/" replace />;
+  return <UserPage userId={id} {...props} />;
+}
+
+// /category/:key → CategoryPage
+function CategoryRoute(props: { onBack: () => void; onOpen: (game: Game) => void }) {
+  const { key } = useParams();
+  if (!key) return <Navigate to="/" replace />;
+  return <CategoryPage categoryKey={key} onBack={props.onBack} onOpen={props.onOpen} />;
+}
 
 // ─── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -35,17 +63,29 @@ export default function App() {
     localStorage.setItem("gv-theme", dark ? "dark" : "light");
   }, [dark]);
 
-  const [page, setPage] = useState("home");
+  // ROUTING NOTE: there used to be a `page` state variable here deciding
+  // what to show. The URL does that job now — navigate() changes it, the
+  // <Routes> block below reads it, and the browser's back button,
+  // refresh, and shareable links all work because the address bar is the
+  // single source of truth for "where am I".
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  // Every navigation starts at the top of the new page — this replaces
+  // the window.scrollTo calls the old click handlers carried around.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   const [query, setQuery] = useState("");
-  const [selGame, setSelGame] = useState<Game | null>(null); // full game object (works for catalog or search hits)
-  const [category, setCategory] = useState<string | null>(null); // active "View More" category key
-  const [viewedUserId, setViewedUserId] = useState<string | null>(null); // whose public page is open
+  // Not "which game is open" anymore (the URL knows that) — this is a
+  // CACHE: the game object from the last in-app click, so GameRoute can
+  // render instantly instead of refetching what we already had.
+  const [selGame, setSelGame] = useState<Game | null>(null);
   const [userList, setUserList] = useState<Entry[]>([]);
   const [showWelcome, setShowWelcome] = useState(true);
 
   // Who is logged in? An object when someone is, null when nobody is.
-  // Note the app is NOT gated on this anymore — anyone can browse. The
-  // session only decides which header buttons you see and whether saves work.
   const [session, setSession] = useState<Session | null>(null);
   // On page load there's a brief moment before Supabase has told us the
   // answer. During it we show NEITHER "Log in" nor "Log out" in the
@@ -53,11 +93,9 @@ export default function App() {
   const [checkingSession, setCheckingSession] = useState(true);
 
   // Is the login/signup modal open, and in which mode? null means closed.
-  // Set to "signin" or "signup" by the header buttons (and by trying to
-  // save a game while logged out).
   const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
 
-  // Live game data from RAWG — three distinct lists for the home feed
+  // Live game data from RAWG — distinct lists for the home feed
   const [feed, setFeed] = useState<{ popular: Game[]; fresh: Game[]; acclaimed: Game[]; topRated: Game[]; reviewed: Game[] }>({ popular: [], fresh: [], acclaimed: [], topRated: [], reviewed: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,8 +147,6 @@ export default function App() {
   useEffect(() => { loadGames(); }, []);
 
   // Start listening for login/logout the moment the app mounts.
-  // Supabase calls us back immediately with the current answer (that's
-  // what ends the "checking" phase), then again on every login/logout.
   useEffect(() => {
     const stopWatching = watchSession((newSession) => {
       setSession(newSession);
@@ -123,15 +159,11 @@ export default function App() {
       }
     });
 
-    // React calls this when App unmounts — we stop listening politely,
-    // the same cleanup pattern as removeEventListener.
+    // React calls this when App unmounts — we stop listening politely.
     return stopWatching;
   }, []);
 
   // Load the saved list whenever the logged-in user changes.
-  // This used to run once on startup, but now the list belongs to a
-  // person, not to the browser — so we wait for a session before asking,
-  // and we re-run on login/logout (the [session] dependency below).
   useEffect(() => {
     // Nobody logged in → there is no list to load. Clear whatever is on
     // screen so one user's games never linger after they log out.
@@ -206,7 +238,7 @@ export default function App() {
     [userList],
   );
 
-  // Combined, de-duplicated set of everything we've loaded (for Browse + rank lookups)
+  // Combined, de-duplicated set of everything we've loaded (for rank lookups)
   const allGames = useMemo(() => {
     const byId = new Map<number, Game>();
     const everything = [...feed.popular, ...feed.fresh, ...feed.acclaimed, ...feed.topRated, ...feed.reviewed];
@@ -216,44 +248,28 @@ export default function App() {
     return [...byId.values()];
   }, [feed]);
 
+  // ── Navigation — thin wrappers over navigate() so callers stay tidy ──
   const open = (game: Game) => {
-    setSelGame(game);
-    setPage("detail");
-    window.scrollTo(0, 0);
+    setSelGame(game); // prime GameRoute's cache for an instant render
+    navigate(`/game/${game.id}`);
   };
 
-  const openCategory = (key: string) => {
-    setCategory(key);
-    setPage("category");
-    window.scrollTo(0, 0);
-  };
+  const openCategory = (key: string) => navigate(`/category/${key}`);
 
-  // Open someone's public page — from a comment author's name today,
-  // from follower lists or anywhere else tomorrow.
-  const openUser = (userId: string) => {
-    setViewedUserId(userId);
-    setPage("user");
-    window.scrollTo(0, 0);
-  };
+  const openUser = (userId: string) => navigate(`/user/${userId}`);
 
   const goHome = () => {
-    setSelGame(null);
     setQuery("");
-    setPage("home");
+    navigate("/");
   };
 
-  const goBack = () => {
-    setSelGame(null);
-    // If a search is active, stay on the current page; otherwise go home.
-    setPage(query.trim() ? page : "home");
-  };
-
-  // Update the search box, clearing any open detail view once a query is typed.
+  // Update the search box. Typing over an open game page returns you
+  // home so the results have somewhere to appear (game and user pages
+  // deliberately survive an open search — see the render logic below).
   const handleSearchChange = (value: string) => {
     setQuery(value);
-    if (value) {
-      setSelGame(null);
-      if (page === "detail") setPage("home");
+    if (value && pathname.startsWith("/game/")) {
+      navigate("/");
     }
   };
 
@@ -277,9 +293,8 @@ export default function App() {
   };
 
   const removeEntry = (id: number) => {
-    // Same guard as saveEntry. Logged-out users have no entries to remove
-    // anyway, so this is belt-and-suspenders — but failing loudly toward
-    // "log in" beats failing silently toward the console.
+    // Same guard as saveEntry — failing loudly toward "log in" beats
+    // failing silently toward the console.
     if (!session) {
       setAuthMode("signin");
       return;
@@ -293,10 +308,11 @@ export default function App() {
   const mostPopular = feed.reviewed.slice(0, 5);  // most reviewed of all time
 
   const NavLink = ({ name, target, icon }: { name: string; target: string; icon: string }) => {
-    const active = page === target;
+    // "Am I here?" now means "does the URL match", not a state variable.
+    const active = pathname === target;
     return (
       <button
-        onClick={() => { setSelGame(null); setQuery(""); setPage(target); }}
+        onClick={() => { setQuery(""); navigate(target); }}
         style={{
           display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
           color: active ? T.text : T.meta, fontSize: 13.5, fontWeight: active ? 600 : 500,
@@ -322,9 +338,9 @@ export default function App() {
             </div>
 
             <nav style={{ display: "flex", alignItems: "center", gap: 22 }}>
-              <NavLink name="Home" target="home" icon="home" />
-              <NavLink name="Browse" target="browse" icon="grid" />
-              <NavLink name="My List" target="list" icon="list" />
+              <NavLink name="Home" target="/" icon="home" />
+              <NavLink name="Browse" target="/browse" icon="grid" />
+              <NavLink name="My List" target="/list" icon="list" />
             </nav>
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
@@ -356,13 +372,12 @@ export default function App() {
                   1. Still waiting to hear from Supabase → show nothing, so a
                      logged-in user never sees "Log in" flash on page load.
                   2. Logged out → Log in (quiet) + Sign up (accent) buttons.
-                     They open the same modal, just in different modes.
                   3. Logged in → your profile + settings. (Log out lives
-                     inside Settings now, keeping the header lean.) */}
+                     inside Settings, keeping the header lean.) */}
               {checkingSession ? null : session ? (
                 <>
                 <button
-                  onClick={() => { setSelGame(null); setQuery(""); openUser(session.user.id); }}
+                  onClick={() => { setQuery(""); openUser(session.user.id); }}
                   title="Your profile"
                   aria-label="Your profile"
                   style={{
@@ -373,10 +388,10 @@ export default function App() {
                 >
                   {/* Lit when you're on your OWN page — someone else's
                       user page shouldn't light up "your profile". */}
-                  <Icon name="user" size={17} color={page === "user" && viewedUserId === session.user.id ? T.accent : T.text} />
+                  <Icon name="user" size={17} color={pathname === `/user/${session.user.id}` ? T.accent : T.text} />
                 </button>
                 <button
-                  onClick={() => { setSelGame(null); setQuery(""); setPage("settings"); }}
+                  onClick={() => { setQuery(""); navigate("/settings"); }}
                   title="Settings"
                   aria-label="Settings"
                   style={{
@@ -385,7 +400,7 @@ export default function App() {
                     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
                   }}
                 >
-                  <Icon name="settings" size={17} color={page === "settings" ? T.accent : T.text} />
+                  <Icon name="settings" size={17} color={pathname === "/settings" ? T.accent : T.text} />
                 </button>
                 </>
               ) : (
@@ -418,58 +433,102 @@ export default function App() {
 
         {/* Body */}
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 60px" }}>
-          {(page === "detail" && selGame) ? (
-            <DetailPage game={selGame} entry={listMap[selGame.id]} games={allGames} onBack={goBack} onSave={saveEntry} onRemove={removeEntry} myUserId={session ? session.user.id : null} onRequireLogin={() => setAuthMode("signup")} onOpenUser={openUser} />
-          ) : page === "user" && viewedUserId ? (
-            <UserPage
-              userId={viewedUserId}
-              myUserId={session ? session.user.id : null}
-              onOpen={open}
-              onOpenUser={openUser}
-              onOpenSettings={() => setPage("settings")}
-              onRequireLogin={() => setAuthMode("signup")}
-              // Back goes to the game you came from if one is open,
-              // otherwise home — we have no routing history (yet).
-              onBack={() => setPage(selGame ? "detail" : "home")}
-            />
-          ) : query.trim() ? (
+          {/* An active search takes over the body — EXCEPT on game and
+              user pages, which survive it (you can keep reading a game
+              while a search waits in the box; typing on a game page
+              sends you home first — see handleSearchChange). */}
+          {query.trim() && !pathname.startsWith("/game/") && !pathname.startsWith("/user/") ? (
             <SearchResults query={query.trim()} results={searchResults} loading={searching} error={searchError} onOpen={open} people={peopleResults} onOpenUser={openUser} />
-          ) : page === "category" && category ? (
-            <CategoryPage categoryKey={category} onBack={goHome} onOpen={open} />
-          ) : loading ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 0", gap: 14 }}>
-              <div style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${T.border}`, borderTopColor: T.accent, animation: "gv-spin 0.8s linear infinite" }} />
-              <div style={{ color: T.meta, fontSize: 14 }}>Loading games…</div>
-            </div>
-          ) : error ? (
-            <div style={{ textAlign: "center", padding: "100px 0", maxWidth: 420, margin: "0 auto" }}>
-              <div style={{ color: T.text, fontWeight: 600, fontSize: 16 }}>Couldn't load games</div>
-              <div style={{ color: T.meta, fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>
-                {error}. Check your internet connection and that your RAWG API key is valid.
-              </div>
-              <button onClick={loadGames}
-                style={{ marginTop: 18, padding: "9px 20px", borderRadius: 8, border: "none", background: T.accent, color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                Try again
-              </button>
-            </div>
-          ) : page === "settings" && session ? (
-            <SettingsPage userId={session.user.id} userEmail={session.user.email ?? ""} dark={dark} onToggleDark={() => setDark(d => !d)} />
-          ) : page === "list" ? (
-            <div style={{ paddingTop: 8 }}>
-              <ListPage listMap={listMap} onOpen={open} onRemove={removeEntry} onSave={saveEntry} />
-            </div>
-          ) : page === "browse" ? (
-            <BrowsePage onOpen={open} />
           ) : (
-            <div className="gv-body" style={{ display: "flex", gap: 28, paddingTop: 22, alignItems: "flex-start" }}>
-              <main style={{ flex: 1, minWidth: 0 }}>
-                <HomePage popular={feed.popular} fresh={feed.fresh} acclaimed={feed.acclaimed} onOpen={open} onViewMore={openCategory} showWelcome={showWelcome} onDismissWelcome={() => setShowWelcome(false)} />
-              </main>
-              <aside className="gv-rail" style={{ width: 300, flexShrink: 0, position: "sticky", top: 80 }}>
-                <SidebarPanel title="Top Ranked" games={topRanked} onOpen={open} onMore={() => openCategory("topRated")} />
-                <SidebarPanel title="Most Popular" games={mostPopular} onOpen={open} onMore={() => openCategory("reviewed")} />
-              </aside>
-            </div>
+            <Routes>
+              <Route path="/" element={
+                loading ? (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 0", gap: 14 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${T.border}`, borderTopColor: T.accent, animation: "gv-spin 0.8s linear infinite" }} />
+                    <div style={{ color: T.meta, fontSize: 14 }}>Loading games…</div>
+                  </div>
+                ) : error ? (
+                  <div style={{ textAlign: "center", padding: "100px 0", maxWidth: 420, margin: "0 auto" }}>
+                    <div style={{ color: T.text, fontWeight: 600, fontSize: 16 }}>Couldn't load games</div>
+                    <div style={{ color: T.meta, fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>
+                      {error}. Check your internet connection and that your RAWG API key is valid.
+                    </div>
+                    <button onClick={loadGames}
+                      style={{ marginTop: 18, padding: "9px 20px", borderRadius: 8, border: "none", background: T.accent, color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                      Try again
+                    </button>
+                  </div>
+                ) : (
+                  <div className="gv-body" style={{ display: "flex", gap: 28, paddingTop: 22, alignItems: "flex-start" }}>
+                    <main style={{ flex: 1, minWidth: 0 }}>
+                      {/* The social feed — only for logged-in users, and
+                          it renders nothing until there's something to
+                          say (see FeedSection). */}
+                      {session && (
+                        <FeedSection myUserId={session.user.id} onOpen={open} onOpenUser={openUser} />
+                      )}
+                      <HomePage popular={feed.popular} fresh={feed.fresh} acclaimed={feed.acclaimed} onOpen={open} onViewMore={openCategory} showWelcome={showWelcome} onDismissWelcome={() => setShowWelcome(false)} />
+                    </main>
+                    <aside className="gv-rail" style={{ width: 300, flexShrink: 0, position: "sticky", top: 80 }}>
+                      <SidebarPanel title="Top Ranked" games={topRanked} onOpen={open} onMore={() => openCategory("topRated")} />
+                      <SidebarPanel title="Most Popular" games={mostPopular} onOpen={open} onMore={() => openCategory("reviewed")} />
+                    </aside>
+                  </div>
+                )
+              } />
+
+              <Route path="/browse" element={<BrowsePage onOpen={open} />} />
+
+              <Route path="/list" element={
+                <div style={{ paddingTop: 8 }}>
+                  <ListPage listMap={listMap} onOpen={open} onRemove={removeEntry} onSave={saveEntry} />
+                </div>
+              } />
+
+              <Route path="/category/:key" element={
+                <CategoryRoute onBack={() => navigate(-1)} onOpen={open} />
+              } />
+
+              <Route path="/game/:id" element={
+                <GameRoute
+                  cachedGame={selGame}
+                  listMap={listMap}
+                  games={allGames}
+                  // navigate(-1) is the browser's own back — the routing
+                  // upgrade retired our hand-rolled "where did you come
+                  // from" guesswork.
+                  onBack={() => navigate(-1)}
+                  onSave={saveEntry}
+                  onRemove={removeEntry}
+                  myUserId={session ? session.user.id : null}
+                  onRequireLogin={() => setAuthMode("signup")}
+                  onOpenUser={openUser}
+                />
+              } />
+
+              <Route path="/user/:id" element={
+                <UserRoute
+                  myUserId={session ? session.user.id : null}
+                  onOpen={open}
+                  onOpenUser={openUser}
+                  onOpenSettings={() => navigate("/settings")}
+                  onRequireLogin={() => setAuthMode("signup")}
+                  onBack={() => navigate(-1)}
+                />
+              } />
+
+              <Route path="/settings" element={
+                // No session, no settings — straight home. This also
+                // handles logging out FROM settings: the session
+                // vanishes, this re-evaluates, and you land on Home.
+                session
+                  ? <SettingsPage userId={session.user.id} userEmail={session.user.email ?? ""} dark={dark} onToggleDark={() => setDark(d => !d)} />
+                  : <Navigate to="/" replace />
+              } />
+
+              {/* Any address we don't recognize goes home. */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           )}
         </div>
 
@@ -482,19 +541,11 @@ export default function App() {
         </footer>
 
         {/* The login/signup modal — rendered on top of everything when a
-            header button (or a logged-out save attempt) opens it.
-            Clicking the dark backdrop closes it; clicking inside the card
-            does NOT, because the inner div stops the click from bubbling
-            up to the backdrop's onClick. The key={authMode} makes React
-            rebuild the form when switching between Log in and Sign up, so
-            it always opens in the mode the button promised. */}
+            header button (or a logged-out save attempt) opens it. */}
         {authMode && (
           <div
-            // Close only when the PRESS itself lands on the backdrop. A
-            // plain onClick has a trap: press inside the card, release
-            // outside (e.g. a long drag-select over a text field), and
-            // the browser fires the click on the backdrop — closing the
-            // form mid-typing. Same fix as the avatar cropper's backdrop.
+            // Close only when the PRESS itself lands on the backdrop —
+            // same trap-avoidance as the avatar cropper's backdrop.
             onPointerDown={(e) => { if (e.target === e.currentTarget) setAuthMode(null); }}
             style={{
               position: "fixed", inset: 0, zIndex: 100,
