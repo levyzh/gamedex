@@ -27,6 +27,50 @@ if (!RAWG_KEY) {
 
 export const RAWG = "https://api.rawg.io/api";
 
+// ─── RAWG response cache (client-side) ─────────────────────────────────────────
+// WHY THIS EXISTS: the browse / home / category pages fetch their game lists
+// from RAWG every time they mount. React throws a page's state away when you
+// navigate off it, so returning to Browse re-ran every request from scratch —
+// which is why revisiting felt just as slow as the first visit.
+//
+// This is a tiny in-memory cache keyed by the FULL request URL. It lives at
+// MODULE scope (not inside any component), so it survives navigating away and
+// back for the whole browser session. Reloading the tab clears it — a fresh
+// session gets fresh data, which is exactly the staleness trade-off we want for
+// a learning app: RAWG's popular / rating lists barely move minute to minute.
+//
+// We cache the PROMISE, not just the resolved value. Two payoffs:
+//   1) a second call for the same URL reuses the in-flight request instead of
+//      firing a duplicate (request de-duplication), and
+//   2) once it resolves, every later call for that URL is effectively instant.
+// Failed requests are removed from the cache so a retry can actually retry.
+const rawgCache = new Map<string, Promise<any>>();
+
+export function rawgGet(url: string): Promise<any> {
+  const cached = rawgCache.get(url);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("RAWG responded with " + response.status);
+      }
+      return response.json();
+    })
+    .catch(error => {
+      // Don't leave a rejected promise sitting in the cache — drop it so the
+      // next attempt for this URL starts a fresh request instead of handing
+      // back the old failure forever.
+      rawgCache.delete(url);
+      throw error;
+    });
+
+  rawgCache.set(url, promise);
+  return promise;
+}
+
 export const FALLBACK_COVER = "linear-gradient(135deg,#1f2433,#3a4358)";
 
 // Flag genuinely adult / NSFW games (hentai, eroge, porn) so we can blur them.
