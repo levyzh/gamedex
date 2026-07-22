@@ -12,7 +12,7 @@ import SearchResults from "./SearchResults";
 import UserPage from "./UserPage";
 import SettingsPage from "./SettingsPage";
 import FeedSection from "./FeedSection";
-import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
+import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
 import { fetchList, postEntry, deleteEntry } from "./api";
 import { THEMES, ThemeCtx, body, display } from "./theme";
 import type { Entry, Game, ProfileSummary } from "./types";
@@ -113,12 +113,11 @@ export default function App() {
     setError(null);
 
     // Fetch a RAWG games query and return the results mapped to our Game shape.
+    // rawgGet caches by URL, so the home rows come back instantly on revisit
+    // (React drops this page's state when you navigate away, so without the
+    // cache every return to Home re-ran all four requests from scratch).
     const getGames = async (queryString: string): Promise<Game[]> => {
-      const response = await fetch(`${RAWG}/games?key=${RAWG_KEY}&${queryString}`);
-      if (!response.ok) {
-        throw new Error("RAWG responded with " + response.status);
-      }
-      const data = await response.json();
+      const data = await rawgGet(`${RAWG}/games?key=${RAWG_KEY}&${queryString}`);
       return (data.results || []).map(mapGame);
     };
 
