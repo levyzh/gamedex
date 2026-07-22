@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Icon from "./Icon";
 import GameCard from "./GameCard";
-import { CATEGORY, RAWG, RAWG_KEY, mapGame } from "./rawg";
+import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
 import { display, useT } from "./theme";
 import type { Game } from "./types";
 
@@ -16,14 +16,10 @@ export default function CategoryPage({ categoryKey, onBack, onOpen }: { category
   const [error, setError] = useState<string | null>(null);
   const [hasNext, setHasNext] = useState(false);
 
-  // Fetch one page of this category's games from RAWG.
-  const fetchPage = async (pageNum: number) => {
-    const response = await fetch(`${RAWG}/games?key=${RAWG_KEY}&${category.query()}&page_size=40&page=${pageNum}`);
-    if (!response.ok) {
-      throw new Error("RAWG responded with " + response.status);
-    }
-    return response.json();
-  };
+  // Fetch one page of this category's games from RAWG. rawgGet caches by URL,
+  // so re-opening the same "View More" (same category + page) is instant.
+  const fetchPage = (pageNum: number) =>
+    rawgGet(`${RAWG}/games?key=${RAWG_KEY}&${category.query()}&page_size=40&page=${pageNum}`);
 
   // Load the first page whenever the category changes.
   useEffect(() => {

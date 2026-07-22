@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Icon from "./Icon";
 import GameCard from "./GameCard";
 import { BROWSE_SORTERS, FILTER_LABEL, FILTER_PARAM } from "./constants";
-import { RAWG, RAWG_KEY, mapGame } from "./rawg";
+import { RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
 import { display, useT } from "./theme";
 import type { FilterOption, Game } from "./types";
 
@@ -29,8 +29,9 @@ export default function BrowsePage({ onOpen }: { onOpen: (g: Game) => void }) {
     // Fetch a RAWG list endpoint and return its `results` array (or [] on error).
     const grab = async (url: string) => {
       try {
-        const response = await fetch(url);
-        const data = await response.json();
+        // rawgGet caches by URL — the genre / platform / tag lists never change,
+        // so after the first Browse visit these come back from cache instantly.
+        const data = await rawgGet(url);
         return data.results || [];
       } catch {
         return [];
@@ -110,11 +111,8 @@ export default function BrowsePage({ onOpen }: { onOpen: (g: Game) => void }) {
     let pagesScanned = 0;
 
     while (hasMore && pagesScanned < MAX_SCAN && collected.length < TARGET) {
-      const response = await fetch(`${RAWG}/games?key=${RAWG_KEY}&${buildQuery(pageNum)}`);
-      if (!response.ok) {
-        throw new Error("RAWG responded with " + response.status);
-      }
-      const data = await response.json();
+      // rawgGet handles the ok-check + caching; same query URL => cache hit.
+      const data = await rawgGet(`${RAWG}/games?key=${RAWG_KEY}&${buildQuery(pageNum)}`);
 
       const mappedGames: Game[] = (data.results || []).map(mapGame);
       const matching = mappedGames.filter(matchesAll);
