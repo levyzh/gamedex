@@ -1,18 +1,22 @@
-// comments.ts — reads and writes for the `comments` domain, now FULLY on our
-// Spring API. supabase-js is still imported, but only to read the login
-// session (the token) — Supabase stays the identity authority. No comment
-// data comes from Supabase anymore; this domain is fully migrated.
+// comments.ts — reads and writes for the `comments` domain, fully on our Spring
+// API. supabase-js is used only to read the login session (the token) — Supabase
+// stays the identity authority. No comment data comes from Supabase anymore.
+//
+// CLEANUP: the API plumbing (API_URL, authHeader, the "optional token" read
+// header, throwForStatus) now lives in ./api-client and is shared with the other
+// migrated domains. Only this domain's own bits stay here: the response shape,
+// the row mapping, the content check, and the error WORDING map.
 
-import { supabase } from "./supabase";
 import type { Comment } from "./types";
+import { API_URL, authHeader, optionalAuthHeader, throwForStatus } from "./api-client";
 
-// The base URL of our own Spring API (dev: http://localhost:8080). Add
-// VITE_API_URL to your .env; restart `npm run dev` after adding it.
-const API_URL = import.meta.env.VITE_API_URL;
-
-if (!API_URL) {
-  console.error("Missing VITE_API_URL — add it to your .env file (e.g. http://localhost:8080).");
-}
+// This domain's status -> message wording (passed to the shared throwForStatus).
+const ERRORS: Record<number, string> = {
+  400: "That comment must be between 1 and 2000 characters.",
+  401: "You need to be logged in to do that.",
+  403: "You can only change your own comments.",
+  404: "That comment no longer exists.",
+};
 
 // The shape the API's CommentResponse sends back.
 type ApiComment = {
@@ -59,53 +63,18 @@ export function validateComment(content: string): string | null {
   return null;
 }
 
-// Lift the current login token out of the supabase-js session and return it
-// as an Authorization header. supabase-js keeps it fresh; the API checks its
-// signature and reads the user id from it.
-async function authHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-
-  if (!token) {
-    throw new Error("You need to be logged in to do that.");
-  }
-
-  return { Authorization: `Bearer ${token}` };
-}
-
-// fetch() does NOT throw on a 4xx/5xx — it returns a response with ok=false.
-// So we check ok ourselves and turn the status into a readable Error.
-async function throwForStatus(res: Response, fallback: string): Promise<never> {
-  const byStatus: Record<number, string> = {
-    400: "That comment must be between 1 and 2000 characters.",
-    401: "You need to be logged in to do that.",
-    403: "You can only change your own comments.",
-    404: "That comment no longer exists.",
-  };
-
-  const body = (await res.text()).trim();
-  throw new Error(byStatus[res.status] || body || `${fallback} (error ${res.status}).`);
-}
-
 // Load every comment for one game, newest first, each with its author and its
-// like data. Now served by the API, not Supabase.
-//
-// The token is sent only when logged in, so the API can fill in likedByMe for
-// this viewer. Logged out: no header, and likedByMe comes back false for all.
+// like data. The token is sent only when logged in (optionalAuthHeader), so the
+// API can fill likedByMe for this viewer; logged out, it comes back false.
+// myUserId is kept in the signature for callers; the token now carries identity.
 export async function fetchComments(gameId: number, myUserId: string | null): Promise<Comment[]> {
-  const headers: Record<string, string> = {};
-  if (myUserId) {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-  }
+  void myUserId; // identity comes from the session token now, not this argument
 
-  const res = await fetch(`${API_URL}/api/games/${gameId}/comments`, { headers });
-
+  const res = await fetch(`${API_URL}/api/games/${gameId}/comments`, {
+    headers: await optionalAuthHeader(),
+  });
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't load the comments");
+    await throwForStatus(res, "Couldn't load the comments", ERRORS);
   }
 
   const rows: ApiComment[] = await res.json();
@@ -130,7 +99,7 @@ export async function postComment(gameId: number, content: string): Promise<void
 
   // 201 on success; CommentSection re-reads the list, so we ignore the body.
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't post the comment");
+    await throwForStatus(res, "Couldn't post the comment", ERRORS);
   }
 }
 
@@ -143,7 +112,7 @@ export async function deleteComment(commentId: number): Promise<void> {
 
   // 204 No Content on success.
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't delete the comment");
+    await throwForStatus(res, "Couldn't delete the comment", ERRORS);
   }
 }
 
@@ -166,7 +135,7 @@ export async function updateComment(commentId: number, content: string): Promise
 
   // 200 on success.
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't save the edit");
+    await throwForStatus(res, "Couldn't save the edit", ERRORS);
   }
 }
 
@@ -179,7 +148,7 @@ export async function likeComment(commentId: number): Promise<void> {
   });
 
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't like the comment");
+    await throwForStatus(res, "Couldn't like the comment", ERRORS);
   }
 }
 
@@ -192,6 +161,6 @@ export async function unlikeComment(commentId: number): Promise<void> {
   });
 
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't remove the like");
+    await throwForStatus(res, "Couldn't remove the like", ERRORS);
   }
 }
