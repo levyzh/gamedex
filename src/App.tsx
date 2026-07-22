@@ -461,13 +461,14 @@ export default function App() {
                 ) : (
                   <div className="gv-body" style={{ display: "flex", gap: 28, paddingTop: 22, alignItems: "flex-start" }}>
                     <main style={{ flex: 1, minWidth: 0 }}>
+                      <HomePage popular={feed.popular} fresh={feed.fresh} acclaimed={feed.acclaimed} onOpen={open} onViewMore={openCategory} showWelcome={showWelcome} onDismissWelcome={() => setShowWelcome(false)} />
                       {/* The social feed — only for logged-in users, and
                           it renders nothing until there's something to
-                          say (see FeedSection). */}
+                          say (see FeedSection). Sits at the BOTTOM of the
+                          page, below the category rows. */}
                       {session && (
                         <FeedSection myUserId={session.user.id} onOpen={open} onOpenUser={openUser} />
                       )}
-                      <HomePage popular={feed.popular} fresh={feed.fresh} acclaimed={feed.acclaimed} onOpen={open} onViewMore={openCategory} showWelcome={showWelcome} onDismissWelcome={() => setShowWelcome(false)} />
                     </main>
                     <aside className="gv-rail" style={{ width: 300, flexShrink: 0, position: "sticky", top: 80 }}>
                       <SidebarPanel title="Top Ranked" games={topRanked} onOpen={open} onMore={() => openCategory("topRated")} />
