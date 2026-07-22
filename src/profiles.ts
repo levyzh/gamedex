@@ -1,36 +1,55 @@
-// profiles.ts — every read and write of the `profiles` table lives here,
-// the same way api.ts owns the list table and auth.ts owns supabase.auth.
-// If a profile bug ever shows up, this is the file to open.
+// profiles.ts — every read and write of the `profiles` table, now served by
+// our Spring API (migrated — the LAST data table to move off direct-Supabase).
+// The one thing still Supabase here is avatar STORAGE (the image file upload),
+// which stays Supabase's job forever; only the avatar_url COLUMN write moved
+// to the API. So this file now imports supabase ONLY for storage.
 //
-// Reminder of the security model: the table's RLS is "public to read,
-// private to write". So fetchProfile works for ANY user's id (that's how
-// friends' profiles will load later), while updateProfile can only ever
-// touch the logged-in user's own row — the database enforces that, not us.
+// CLEANUP: API_URL / authHeader / optionalAuthHeader / throwForStatus come from
+// ./api-client, same as the other migrated files. Only the profile domain's own
+// bits stay here: the shape mapping and the error wording.
+//
+//   READS  -> GET /api/users/{userId}/profile   (PUBLIC — a user page must load
+//             logged-out) and GET /api/users/search?q=  (the People search)
+//   WRITES -> PUT /api/me/profile  and  PUT /api/me/avatar  (authed; the API
+//             takes the owner from the JWT, never from us — you can only ever
+//             change your OWN row.)
 
 import { supabase } from "./supabase";
-import type { Profile } from "./types";
+import type { Profile, ProfileSummary } from "./types";
+import { API_URL, authHeader, throwForStatus } from "./api-client";
 
-// Database row → app Profile. Same translation pattern as api.ts:
-// the database speaks snake_case (avatar_url), the app speaks camelCase
-// (avatarUrl), and the difference stays trapped inside this file.
-function rowToProfile(row: any): Profile {
+// This domain's status -> message wording. (updateProfile adds a couple of
+// per-call messages inline, because "username taken" vs a bad-format 400 read
+// better in context than a single generic 400 line.)
+const ERRORS: Record<number, string> = {
+  400: "That profile isn't valid.",
+  401: "You need to be logged in to do that.",
+  404: "That profile doesn't exist.",
+};
+
+// API ProfileResponse -> app Profile. The API already sends camelCase in the
+// app's exact Profile shape (id, username, bio, avatarUrl, listPublic,
+// createdAt), so this is a straight pass-through — the snake_case↔camelCase
+// translation that used to live here now happens server-side in Java.
+function apiToProfile(r: any): Profile {
   return {
-    id: row.id,
-    username: row.username,
-    bio: row.bio,
-    avatarUrl: row.avatar_url,
-    listPublic: row.list_public,
-    createdAt: row.created_at,
+    id: r.id,
+    username: r.username,
+    bio: r.bio,
+    avatarUrl: r.avatarUrl,
+    listPublic: r.listPublic,
+    createdAt: r.createdAt,
   };
 }
 
-// Check a username against the SAME rule the database enforces
-// (lowercase letters, digits, underscores, 3-20 chars). Returns a
+// Check a username against the SAME rule the database (and now the API) enforce
+// — 3-20 chars, lowercase letters / digits / underscores. Returns a
 // human-readable problem, or null when the name is fine.
 //
-// WHY duplicate the database's check here? Because the database can only
-// say no with a cryptic constraint error AFTER a round trip. Checking
-// first lets the form explain the rule in plain words, instantly.
+// WHY keep this on the client after migrating? Same reason as before: it lets
+// the form explain the rule in plain words INSTANTLY, with no round trip. The
+// API re-checks it too (that's the trusted copy); this one is just for UX. Same
+// pattern as keeping the list-status check client-side.
 export function validateUsername(username: string): string | null {
   if (!/^[a-z0-9_]{3,20}$/.test(username)) {
     return "Usernames must be 3-20 characters, using only lowercase letters, numbers, and underscores.";
@@ -38,56 +57,59 @@ export function validateUsername(username: string): string | null {
   return null;
 }
 
-// Load one profile by user id. Works for anyone's id thanks to the
-// public-read policy. .single() means "I expect exactly one row" — and
-// thanks to the signup trigger, exactly one row always exists.
+// Load one profile by user id. Works for anyone's id — the API GET is public,
+// exactly like the old public-read RLS policy allowed.
 export async function fetchProfile(userId: string): Promise<Profile> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
-
-  if (error) {
-    throw new Error(`Couldn't load the profile: ${error.message}`);
+  const res = await fetch(`${API_URL}/api/users/${userId}/profile`);
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't load the profile", ERRORS);
   }
-
-  return rowToProfile(data);
+  return apiToProfile(await res.json());
 }
 
-// Save the logged-in user's username and bio.
-// We pass the id only to say WHICH row to update — RLS is what guarantees
-// it can only ever be their own.
+// Save the logged-in user's username, bio, and list privacy. The API takes the
+// owner from the JWT, so there's no id to pass — you can only edit your OWN row.
 export async function updateProfile(
   userId: string,
   changes: { username: string; bio: string; listPublic: boolean }
 ): Promise<void> {
-  // Fail loudly BEFORE the network trip if the username breaks the rule.
+  // Fail loudly BEFORE the network trip if the username breaks the rule — same
+  // instant feedback as before. (userId stays in the signature so callers don't
+  // change, but it isn't sent: the server uses the token's subject.)
   const problem = validateUsername(changes.username);
   if (problem) {
     throw new Error(problem);
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ username: changes.username, bio: changes.bio, list_public: changes.listPublic })
-    .eq("id", userId);
+  const res = await fetch(`${API_URL}/api/me/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeader()),
+    },
+    body: JSON.stringify({
+      username: changes.username,
+      bio: changes.bio,
+      listPublic: changes.listPublic,
+    }),
+  });
 
-  if (error) {
-    // 23505 is Postgres's code for "unique constraint violated" — here
-    // that can only mean one thing, so translate it into plain words.
-    if (error.code === "23505") {
-      throw new Error(`The username "${changes.username}" is already taken.`);
-    }
-    throw new Error(`Couldn't save your profile: ${error.message}`);
+  if (!res.ok) {
+    // The API returns 400 for BOTH a bad username format and a taken username.
+    // It puts the human message in the response body ("...already taken."),
+    // and throwForStatus prefers the server body over a generic map entry when
+    // no exact-status override is given — so the specific wording comes through.
+    await throwForStatus(res, "Couldn't save your profile", ERRORS);
   }
 }
 
 // Upload a new avatar image and record its URL on the profile.
-// Returns the new URL so the page can show the picture immediately.
 //
-// The flow is three small steps: put the file in Storage, ask Storage
-// for the file's public URL, save that URL into profiles.avatar_url.
+// SPLIT after migration: the IMAGE still goes to Supabase Storage (that stays
+// Supabase forever — no value proxying a file through Java), but saving the
+// resulting URL onto profiles.avatar_url is now an API call (PUT /api/me/avatar)
+// instead of a direct table write. The flow is still three small steps: put the
+// file in Storage, ask Storage for its public URL, save that URL via the API.
 export async function uploadAvatar(userId: string, file: File): Promise<string> {
   // Fail loudly BEFORE uploading anything unreasonable.
   if (!file.type.startsWith("image/")) {
@@ -98,9 +120,10 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
     throw new Error("That image is too big — avatars are limited to 2 MB.");
   }
 
-  // Everyone's avatar lives at "{their-user-id}/avatar". The folder name
-  // IS the ownership claim: the Storage policy only lets you write inside
-  // the folder matching your own auth.uid().
+  // Everyone's avatar lives at "{their-user-id}/avatar". The folder name IS the
+  // ownership claim: the Storage policy only lets you write inside the folder
+  // matching your own auth.uid(). (Storage RLS still applies — this call is
+  // still direct to Supabase, so that policy is still what guards it.)
   const path = `${userId}/avatar`;
 
   // upsert: true = "overwrite if a file is already there", which is what
@@ -117,51 +140,51 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   // getPublicUrl doesn't touch the network — it just builds the address.
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
 
-  // The quirk worth knowing: because the path never changes, the URL
-  // never changes — and browsers happily keep showing the OLD image from
-  // cache after you upload a new one. Adding ?t=<now> makes each upload's
-  // URL unique, forcing browsers to fetch the fresh picture.
+  // The quirk worth knowing: because the path never changes, the URL never
+  // changes — and browsers happily keep showing the OLD image from cache after
+  // you upload a new one. Adding ?t=<now> makes each upload's URL unique,
+  // forcing browsers to fetch the fresh picture.
   const url = `${data.publicUrl}?t=${Date.now()}`;
 
-  const { error: saveError } = await supabase
-    .from("profiles")
-    .update({ avatar_url: url })
-    .eq("id", userId);
+  // Save the URL onto the profile row — now via the API, not a direct write.
+  // Owner comes from the JWT, so no id is sent.
+  const res = await fetch(`${API_URL}/api/me/avatar`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeader()),
+    },
+    body: JSON.stringify({ avatarUrl: url }),
+  });
 
-  if (saveError) {
-    throw new Error(`Couldn't save the new avatar: ${saveError.message}`);
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't save the new avatar", ERRORS);
   }
 
   return url;
 }
 
-// Find people by username — the search box's "People" results.
-//
-// ilike = case-insensitive pattern match; the %s around the term mean
-// "anywhere in the name", so "kir" finds "kira" and "shakira" alike.
-// We strip % and _ from the term itself first because those characters
-// are wildcards in patterns — a user typing them should find usernames,
-// not accidentally write their own pattern.
-export async function searchProfiles(term: string): Promise<import("./types").ProfileSummary[]> {
-  const cleaned = term.trim().replace(/[%_]/g, "");
+// Find people by username — the search box's "People" results. Public API GET.
+// The API caps at 20 and orders by username, and treats % / _ in the term
+// literally, so the old client-side stripping is no longer needed — but we
+// still trim and skip an empty term to avoid a pointless call.
+export async function searchProfiles(term: string): Promise<ProfileSummary[]> {
+  const cleaned = term.trim();
   if (cleaned.length === 0) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_url")
-    .ilike("username", `%${cleaned}%`)
-    .order("username")
-    .limit(20); // a search box wants the best few, not the whole town
-
-  if (error) {
-    throw new Error(`Couldn't search people: ${error.message}`);
+  const res = await fetch(
+    `${API_URL}/api/users/search?q=${encodeURIComponent(cleaned)}`
+  );
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't search people", ERRORS);
   }
 
-  return (data ?? []).map(row => ({
+  const data = await res.json();
+  return (data as any[]).map(row => ({
     id: row.id,
     username: row.username,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.avatarUrl,
   }));
 }
