@@ -1,46 +1,53 @@
-// comments.ts — every read and write of the `comments` table lives here,
-// completing the set: api.ts owns list, profiles.ts owns profiles, and
-// this file owns comments.
-//
-// The new trick in this file is the TWO-TABLE QUERY in fetchComments:
-// because comments.user_id is a foreign key pointing at profiles, Supabase
-// can hand back each comment with its author's profile nested inside it —
-// one round trip, no manual joining on our side.
+// comments.ts — reads and writes for the `comments` domain, now FULLY on our
+// Spring API. supabase-js is still imported, but only to read the login
+// session (the token) — Supabase stays the identity authority. No comment
+// data comes from Supabase anymore; this domain is fully migrated.
 
 import { supabase } from "./supabase";
 import type { Comment } from "./types";
 
-// Database row → app Comment. The joined profile arrives as a nested
-// `profiles` object on the row; we fold it into a tidy `author` field.
-// The ?? fallbacks should never fire (the foreign key guarantees an
-// author exists) — they're seatbelts, not expectations.
-//
-// myUserId is needed for one question only: "is MY like among these?" —
-// which is what lights up the heart.
-function rowToComment(row: any, myUserId: string | null): Comment {
-  // The embedded likes arrive as an array of { user_id } objects, one
-  // per person who liked this comment.
-  const likes: { user_id: string }[] = row.comment_likes ?? [];
+// The base URL of our own Spring API (dev: http://localhost:8080). Add
+// VITE_API_URL to your .env; restart `npm run dev` after adding it.
+const API_URL = import.meta.env.VITE_API_URL;
 
+if (!API_URL) {
+  console.error("Missing VITE_API_URL — add it to your .env file (e.g. http://localhost:8080).");
+}
+
+// The shape the API's CommentResponse sends back.
+type ApiComment = {
+  id: number;
+  gameId: number;
+  content: string;
+  createdAt: string;
+  editedAt: string | null;
+  authorId: string;
+  authorUsername: string;
+  authorAvatarUrl: string | null;
+  likeCount: number;
+  likedByMe: boolean;
+};
+
+// API response -> app Comment (the flat API shape folded into our nested one).
+function apiToComment(r: ApiComment): Comment {
   return {
-    id: row.id,
-    userId: row.user_id,
-    gameId: row.game_id,
-    content: row.content,
-    createdAt: row.created_at,
-    editedAt: row.edited_at,
-    likeCount: likes.length,
-    likedByMe: myUserId !== null && likes.some(like => like.user_id === myUserId),
+    id: r.id,
+    userId: r.authorId,
+    gameId: r.gameId,
+    content: r.content,
+    createdAt: r.createdAt,
+    editedAt: r.editedAt,
+    likeCount: r.likeCount,
+    likedByMe: r.likedByMe,
     author: {
-      username: row.profiles?.username ?? "unknown",
-      avatarUrl: row.profiles?.avatar_url ?? null,
+      username: r.authorUsername,
+      avatarUrl: r.authorAvatarUrl,
     },
   };
 }
 
-// The same rule the database's check constraint enforces (1-2000 chars),
-// checked here first so the form can explain it instantly and in plain
-// words — same reasoning as validateUsername in profiles.ts.
+// Instant, in-the-browser check (1–2000 chars) so the form can explain a
+// problem before anything leaves the page. The API validates too.
 export function validateComment(content: string): string | null {
   const trimmed = content.trim();
   if (trimmed.length === 0) {
@@ -52,112 +59,139 @@ export function validateComment(content: string): string | null {
   return null;
 }
 
-// Load every comment for one game, newest first, each with its author
-// AND its likes.
-//
-// The select string is now a THREE-table query: "*" = all comment
-// columns, the profiles embed for the author, and "comment_likes(user_id)"
-// = follow the foreign key pointing back at comments and bring every
-// like's user_id along.
-//
-// Note the "!user_id" on profiles: since comment_likes points at BOTH
-// comments and profiles, there are now TWO roads from a comment to
-// profiles — the author (via user_id) and the likers (via the likes
-// table). Supabase refuses to guess which we mean, so "!user_id" names
-// the road: the profile reached through the user_id column = the author.
-//
-// Honest tradeoff, flagged: embedding every like scales with how liked
-// a comment is — perfect at this project's size, and if a comment ever
-// gathers thousands of likes, the fix is asking the database to count
-// instead of fetch. A good problem to have; not one to pre-solve.
-export async function fetchComments(gameId: number, myUserId: string | null): Promise<Comment[]> {
-  const { data, error } = await supabase
-    .from("comments")
-    .select("*, profiles!user_id(username, avatar_url), comment_likes(user_id)")
-    .eq("game_id", gameId)
-    .order("created_at", { ascending: false });
+// Lift the current login token out of the supabase-js session and return it
+// as an Authorization header. supabase-js keeps it fresh; the API checks its
+// signature and reads the user id from it.
+async function authHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
 
-  if (error) {
-    throw new Error(`Couldn't load the comments: ${error.message}`);
+  if (!token) {
+    throw new Error("You need to be logged in to do that.");
   }
 
-  return (data ?? []).map(row => rowToComment(row, myUserId));
+  return { Authorization: `Bearer ${token}` };
 }
 
-// Post one comment on a game.
-// No user_id here — the column's default is auth.uid(), so Postgres
-// stamps the comment with whoever is logged in, and RLS would reject
-// any attempt to claim otherwise. Same pattern as saving a list entry.
+// fetch() does NOT throw on a 4xx/5xx — it returns a response with ok=false.
+// So we check ok ourselves and turn the status into a readable Error.
+async function throwForStatus(res: Response, fallback: string): Promise<never> {
+  const byStatus: Record<number, string> = {
+    400: "That comment must be between 1 and 2000 characters.",
+    401: "You need to be logged in to do that.",
+    403: "You can only change your own comments.",
+    404: "That comment no longer exists.",
+  };
+
+  const body = (await res.text()).trim();
+  throw new Error(byStatus[res.status] || body || `${fallback} (error ${res.status}).`);
+}
+
+// Load every comment for one game, newest first, each with its author and its
+// like data. Now served by the API, not Supabase.
+//
+// The token is sent only when logged in, so the API can fill in likedByMe for
+// this viewer. Logged out: no header, and likedByMe comes back false for all.
+export async function fetchComments(gameId: number, myUserId: string | null): Promise<Comment[]> {
+  const headers: Record<string, string> = {};
+  if (myUserId) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  const res = await fetch(`${API_URL}/api/games/${gameId}/comments`, { headers });
+
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't load the comments");
+  }
+
+  const rows: ApiComment[] = await res.json();
+  return rows.map(apiToComment);
+}
+
+// Post one comment. The API stamps the author from the token — no user_id sent.
 export async function postComment(gameId: number, content: string): Promise<void> {
   const problem = validateComment(content);
   if (problem) {
     throw new Error(problem);
   }
 
-  const { error } = await supabase
-    .from("comments")
-    .insert({ game_id: gameId, content: content.trim() });
+  const res = await fetch(`${API_URL}/api/games/${gameId}/comments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeader()),
+    },
+    body: JSON.stringify({ content: content.trim() }),
+  });
 
-  if (error) {
-    throw new Error(`Couldn't post the comment: ${error.message}`);
+  // 201 on success; CommentSection re-reads the list, so we ignore the body.
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't post the comment");
   }
 }
 
-// Delete one comment by its id. We only say WHICH comment — RLS
-// guarantees the delete can only ever land on the logged-in user's own.
+// Delete one comment. A 403 is the API refusing someone else's comment.
 export async function deleteComment(commentId: number): Promise<void> {
-  const { error } = await supabase
-    .from("comments")
-    .delete()
-    .eq("id", commentId);
+  const res = await fetch(`${API_URL}/api/comments/${commentId}`, {
+    method: "DELETE",
+    headers: await authHeader(),
+  });
 
-  if (error) {
-    throw new Error(`Couldn't delete the comment: ${error.message}`);
+  // 204 No Content on success.
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't delete the comment");
   }
 }
 
-// Rewrite one of your own comments. Also stamps edited_at, which is
-// what makes the honest little "(edited)" tag possible — the content
-// changes AND the record admits it changed.
+// Rewrite one of your own comments. The API stamps edited_at, which powers
+// the "(edited)" tag.
 export async function updateComment(commentId: number, content: string): Promise<void> {
   const problem = validateComment(content);
   if (problem) {
     throw new Error(problem);
   }
 
-  const { error } = await supabase
-    .from("comments")
-    .update({ content: content.trim(), edited_at: new Date().toISOString() })
-    .eq("id", commentId);
+  const res = await fetch(`${API_URL}/api/comments/${commentId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeader()),
+    },
+    body: JSON.stringify({ content: content.trim() }),
+  });
 
-  if (error) {
-    throw new Error(`Couldn't save the edit: ${error.message}`);
+  // 200 on success.
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't save the edit");
   }
 }
 
-// Like one comment. No user_id — the default auth.uid() stamps it, and
-// the composite primary key means liking twice is impossible by
-// construction (the database would refuse the duplicate row).
+// Like one comment. An empty POST to the comment's /likes path — the API takes
+// the user from the token. 201 on success; liking twice is a quiet no-op.
 export async function likeComment(commentId: number): Promise<void> {
-  const { error } = await supabase
-    .from("comment_likes")
-    .insert({ comment_id: commentId });
+  const res = await fetch(`${API_URL}/api/comments/${commentId}/likes`, {
+    method: "POST",
+    headers: await authHeader(),
+  });
 
-  if (error) {
-    throw new Error(`Couldn't like the comment: ${error.message}`);
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't like the comment");
   }
 }
 
-// Un-like: delete the row for this comment. We don't filter by user —
-// RLS already narrows deletes to YOUR rows, so "the like on comment 7
-// that I'm allowed to delete" can only be your own.
+// Un-like: DELETE the same path. 204 on success; unliking something you never
+// liked is also a quiet no-op.
 export async function unlikeComment(commentId: number): Promise<void> {
-  const { error } = await supabase
-    .from("comment_likes")
-    .delete()
-    .eq("comment_id", commentId);
+  const res = await fetch(`${API_URL}/api/comments/${commentId}/likes`, {
+    method: "DELETE",
+    headers: await authHeader(),
+  });
 
-  if (error) {
-    throw new Error(`Couldn't remove the like: ${error.message}`);
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't remove the like");
   }
 }
