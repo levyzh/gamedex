@@ -1,153 +1,108 @@
-// follows.ts — every read and write of the `follows` table lives here,
-// completing the set: api.ts owns list, profiles.ts owns profiles,
-// comments.ts owns comments, and this file owns who-follows-whom.
+// follows.ts — every read and write of who-follows-whom, now served by our
+// Spring API (migrated 2026-07-21). supabase-js is used only for the login
+// session (the token) — same split as comments.ts.
+//
+// The API returns FollowStats and ProfileSummary in the exact shapes the app
+// already uses, so there's no row-mapping here — res.json() is the value.
+//
+// NOTE: the small helpers below (API_URL, authHeader, throwForStatus) are
+// duplicated from comments.ts for now. A future cleanup could extract them into
+// one shared api-client module; kept inline here to keep this file self-contained.
 
 import { supabase } from "./supabase";
-import type { FollowStats } from "./types";
+import type { FollowStats, ProfileSummary } from "./types";
 
-// Everything a user page needs to know about someone's follows, in one
-// call: their follower count, their following count, and whether the
-// logged-in user is among the followers.
-//
-// This function makes good on the promise in comments.ts: instead of
-// fetching rows and counting them ourselves (fine for a comment's likes,
-// wasteful for potentially thousands of follows), we ask the DATABASE to
-// count. That's what { count: "exact", head: true } means — "run the
-// query, tell me how many rows matched, send me none of them."
+// Base URL of the Spring API (dev http://localhost:8080). From VITE_API_URL;
+// restart `npm run dev` after adding it to .env.
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  console.error("Missing VITE_API_URL — add it to your .env file (e.g. http://localhost:8080).");
+}
+
+// Bearer header from the current session. Throws when logged out — the writes
+// (follow/unfollow) require it.
+async function authHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) {
+    throw new Error("You need to be logged in to do that.");
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
+// fetch() doesn't throw on 4xx/5xx — turn a failed response into a readable Error.
+async function throwForStatus(res: Response, fallback: string): Promise<never> {
+  const byStatus: Record<number, string> = {
+    400: "That isn't allowed.",
+    401: "You need to be logged in to do that.",
+    403: "You can only change your own follows.",
+    404: "That user doesn't exist.",
+  };
+  const body = (await res.text()).trim();
+  throw new Error(byStatus[res.status] || body || `${fallback} (error ${res.status}).`);
+}
+
+// Everything a user page needs about someone's follows in one call. The token
+// is sent only when logged in, so followedByMe/followsMe are filled for the
+// viewer (both false when logged out). The API returns this exact shape.
 export async function fetchFollowStats(
   userId: string,
   myUserId: string | null
 ): Promise<FollowStats> {
-  // Question 1: how many people follow them?
-  const followers = await supabase
-    .from("follows")
-    .select("*", { count: "exact", head: true })
-    .eq("followed_id", userId);
-
-  if (followers.error) {
-    throw new Error(`Couldn't load the follower count: ${followers.error.message}`);
-  }
-
-  // Question 2: how many people do they follow?
-  const following = await supabase
-    .from("follows")
-    .select("*", { count: "exact", head: true })
-    .eq("follower_id", userId);
-
-  if (following.error) {
-    throw new Error(`Couldn't load the following count: ${following.error.message}`);
-  }
-
-  // Questions 3 and 4 — only meaningful when someone is logged in.
-  // Both ask "does one specific row exist?", just mirrored: (me → them)
-  // is "do I follow them", (them → me) is "do they follow me". Counting
-  // a query that can only ever match 0 or 1 rows (it's the primary key)
-  // is the plainest way to ask.
-  let followedByMe = false;
-  let followsMe = false;
+  const headers: Record<string, string> = {};
   if (myUserId) {
-    const mine = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("follower_id", myUserId)
-      .eq("followed_id", userId);
-
-    if (mine.error) {
-      throw new Error(`Couldn't check your follow: ${mine.error.message}`);
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
     }
-
-    followedByMe = (mine.count ?? 0) > 0;
-
-    const theirs = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("follower_id", userId)
-      .eq("followed_id", myUserId);
-
-    if (theirs.error) {
-      throw new Error(`Couldn't check their follow: ${theirs.error.message}`);
-    }
-
-    followsMe = (theirs.count ?? 0) > 0;
   }
 
-  return {
-    followers: followers.count ?? 0,
-    following: following.count ?? 0,
-    followedByMe,
-    followsMe,
-  };
+  const res = await fetch(`${API_URL}/api/users/${userId}/follow-stats`, { headers });
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't load the follow stats");
+  }
+  return res.json();
 }
 
-// Follow someone. No follower_id — the column's default is auth.uid(),
-// so the database stamps YOU as the follower, and RLS would reject any
-// attempt to follow on someone else's behalf. Following twice is
-// impossible too (composite primary key), as is following yourself
-// (the no_self_follow constraint) — the schema is the bouncer.
+// Follow someone. The API takes the follower from the token — no id to send.
+// 201 on success; following twice is a quiet no-op (composite key).
 export async function followUser(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from("follows")
-    .insert({ followed_id: userId });
-
-  if (error) {
-    throw new Error(`Couldn't follow: ${error.message}`);
+  const res = await fetch(`${API_URL}/api/users/${userId}/follow`, {
+    method: "POST",
+    headers: await authHeader(),
+  });
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't follow");
   }
 }
 
-// Unfollow. We only say WHO to unfollow — RLS narrows deletes to rows
-// where you're the follower, so "the follow on them that I may delete"
-// can only be your own.
+// Unfollow. 204 on success; unfollowing someone you don't follow is a no-op.
 export async function unfollowUser(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from("follows")
-    .delete()
-    .eq("followed_id", userId);
-
-  if (error) {
-    throw new Error(`Couldn't unfollow: ${error.message}`);
+  const res = await fetch(`${API_URL}/api/users/${userId}/follow`, {
+    method: "DELETE",
+    headers: await authHeader(),
+  });
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't unfollow");
   }
 }
 
-// The people BEHIND the numbers: who follows this user, and who they
-// follow. These two queries are the purest demonstration of the
-// two-roads problem from comments.ts — the follows table points at
-// profiles TWICE (follower_id and followed_id), so every embed must
-// name its road with !column or Supabase refuses to guess.
-
-// Who follows them: take rows where they're the followed one, and for
-// each, embed the profile reached through follower_id — the fans.
-export async function fetchFollowers(userId: string): Promise<import("./types").ProfileSummary[]> {
-  const { data, error } = await supabase
-    .from("follows")
-    .select("profiles!follower_id(id, username, avatar_url)")
-    .eq("followed_id", userId);
-
-  if (error) {
-    throw new Error(`Couldn't load the followers: ${error.message}`);
+// Who follows this user — public read. The API returns ProfileSummary rows.
+export async function fetchFollowers(userId: string): Promise<ProfileSummary[]> {
+  const res = await fetch(`${API_URL}/api/users/${userId}/followers`);
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't load the followers");
   }
-
-  return (data ?? []).map((row: any) => ({
-    id: row.profiles?.id,
-    username: row.profiles?.username ?? "unknown",
-    avatarUrl: row.profiles?.avatar_url ?? null,
-  }));
+  return res.json();
 }
 
-// Who they follow: the same query mirrored — rows where they're the
-// follower, embedding the profile reached through followed_id.
-export async function fetchFollowing(userId: string): Promise<import("./types").ProfileSummary[]> {
-  const { data, error } = await supabase
-    .from("follows")
-    .select("profiles!followed_id(id, username, avatar_url)")
-    .eq("follower_id", userId);
-
-  if (error) {
-    throw new Error(`Couldn't load the following list: ${error.message}`);
+// Who this user follows — public read.
+export async function fetchFollowing(userId: string): Promise<ProfileSummary[]> {
+  const res = await fetch(`${API_URL}/api/users/${userId}/following`);
+  if (!res.ok) {
+    await throwForStatus(res, "Couldn't load the following list");
   }
-
-  return (data ?? []).map((row: any) => ({
-    id: row.profiles?.id,
-    username: row.profiles?.username ?? "unknown",
-    avatarUrl: row.profiles?.avatar_url ?? null,
-  }));
+  return res.json();
 }
