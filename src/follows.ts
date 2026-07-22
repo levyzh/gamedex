@@ -1,67 +1,37 @@
-// follows.ts — every read and write of who-follows-whom, now served by our
-// Spring API (migrated 2026-07-21). supabase-js is used only for the login
-// session (the token) — same split as comments.ts.
+// follows.ts — every read and write of who-follows-whom, served by our Spring
+// API. supabase-js is used only for the login session (the token).
 //
-// The API returns FollowStats and ProfileSummary in the exact shapes the app
-// already uses, so there's no row-mapping here — res.json() is the value.
-//
-// NOTE: the small helpers below (API_URL, authHeader, throwForStatus) are
-// duplicated from comments.ts for now. A future cleanup could extract them into
-// one shared api-client module; kept inline here to keep this file self-contained.
+// CLEANUP: the API plumbing (API_URL, authHeader, optionalAuthHeader,
+// throwForStatus) now lives in ./api-client, shared across the migrated domains.
+// The API returns FollowStats and ProfileSummary in the app's exact shapes, so
+// there's no row-mapping here — res.json() is the value.
 
-import { supabase } from "./supabase";
 import type { FollowStats, ProfileSummary } from "./types";
+import { API_URL, authHeader, optionalAuthHeader, throwForStatus } from "./api-client";
 
-// Base URL of the Spring API (dev http://localhost:8080). From VITE_API_URL;
-// restart `npm run dev` after adding it to .env.
-const API_URL = import.meta.env.VITE_API_URL;
-
-if (!API_URL) {
-  console.error("Missing VITE_API_URL — add it to your .env file (e.g. http://localhost:8080).");
-}
-
-// Bearer header from the current session. Throws when logged out — the writes
-// (follow/unfollow) require it.
-async function authHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) {
-    throw new Error("You need to be logged in to do that.");
-  }
-  return { Authorization: `Bearer ${token}` };
-}
-
-// fetch() doesn't throw on 4xx/5xx — turn a failed response into a readable Error.
-async function throwForStatus(res: Response, fallback: string): Promise<never> {
-  const byStatus: Record<number, string> = {
-    400: "That isn't allowed.",
-    401: "You need to be logged in to do that.",
-    403: "You can only change your own follows.",
-    404: "That user doesn't exist.",
-  };
-  const body = (await res.text()).trim();
-  throw new Error(byStatus[res.status] || body || `${fallback} (error ${res.status}).`);
-}
+// This domain's status -> message wording.
+const ERRORS: Record<number, string> = {
+  400: "That isn't allowed.",
+  401: "You need to be logged in to do that.",
+  403: "You can only change your own follows.",
+  404: "That user doesn't exist.",
+};
 
 // Everything a user page needs about someone's follows in one call. The token
-// is sent only when logged in, so followedByMe/followsMe are filled for the
-// viewer (both false when logged out). The API returns this exact shape.
+// is sent only when logged in (optionalAuthHeader), so followedByMe/followsMe
+// are filled for the viewer (both false when logged out). myUserId stays in the
+// signature for callers; identity now rides in the token.
 export async function fetchFollowStats(
   userId: string,
   myUserId: string | null
 ): Promise<FollowStats> {
-  const headers: Record<string, string> = {};
-  if (myUserId) {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-  }
+  void myUserId; // identity comes from the session token now, not this argument
 
-  const res = await fetch(`${API_URL}/api/users/${userId}/follow-stats`, { headers });
+  const res = await fetch(`${API_URL}/api/users/${userId}/follow-stats`, {
+    headers: await optionalAuthHeader(),
+  });
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't load the follow stats");
+    await throwForStatus(res, "Couldn't load the follow stats", ERRORS);
   }
   return res.json();
 }
@@ -74,7 +44,7 @@ export async function followUser(userId: string): Promise<void> {
     headers: await authHeader(),
   });
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't follow");
+    await throwForStatus(res, "Couldn't follow", ERRORS);
   }
 }
 
@@ -85,7 +55,7 @@ export async function unfollowUser(userId: string): Promise<void> {
     headers: await authHeader(),
   });
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't unfollow");
+    await throwForStatus(res, "Couldn't unfollow", ERRORS);
   }
 }
 
@@ -93,7 +63,7 @@ export async function unfollowUser(userId: string): Promise<void> {
 export async function fetchFollowers(userId: string): Promise<ProfileSummary[]> {
   const res = await fetch(`${API_URL}/api/users/${userId}/followers`);
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't load the followers");
+    await throwForStatus(res, "Couldn't load the followers", ERRORS);
   }
   return res.json();
 }
@@ -102,7 +72,7 @@ export async function fetchFollowers(userId: string): Promise<ProfileSummary[]> 
 export async function fetchFollowing(userId: string): Promise<ProfileSummary[]> {
   const res = await fetch(`${API_URL}/api/users/${userId}/following`);
   if (!res.ok) {
-    await throwForStatus(res, "Couldn't load the following list");
+    await throwForStatus(res, "Couldn't load the following list", ERRORS);
   }
   return res.json();
 }
