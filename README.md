@@ -41,7 +41,8 @@ never asserts who it is.
 React 19 · TypeScript 6 · Vite 8 · React Router 7 · supabase-js 2
 
 No CSS framework — styling is inline, themed through a React context in
-`src/theme.ts`. Fonts (Space Grotesk, Inter) are injected by `src/styles.ts`.
+`src/lib/theme.ts`. Fonts (Space Grotesk, Inter) are injected by
+`src/lib/styles.ts`.
 
 ## Getting started
 
@@ -113,18 +114,22 @@ and shared links all behave.
 
 ```
 src/
+  main.tsx          Entry point
   App.tsx           Routing, header, session, shared state
-  api-client.ts     Shared plumbing for API calls (auth headers, errors)
-  api.ts            List entries          feed.ts       Home feed
-  comments.ts       Comments & likes      follows.ts    Follow graph
-  profiles.ts       Profiles & avatars    auth.ts       Session watching
-  rawg.ts           RAWG client + cache   supabase.ts   Supabase client
-  theme.ts          Themes and context    styles.ts     Global CSS
-  *.tsx             Screens and components
+
+  pages/            One screen per route
+  components/       Shared pieces; ui/ holds the generic ones
+  api/              Everything that talks to a server
+  lib/              Themes, types, constants, helpers
 ```
 
-Each domain file owns its own endpoints and error wording; `api-client.ts` owns
-the mechanics of calling the API.
+Inside `api/`, each domain file (`comments`, `feed`, `follows`, `profiles`,
+`list`) owns its own endpoints and error wording, while `client.ts` owns the
+mechanics of calling the API — auth headers and error handling. `rawg.ts` and
+`supabase.ts` wrap the two third-party services.
+
+`components/ui/` holds pieces with no domain knowledge, like `Icon` and
+`ArrowBtn`. Anything that understands games or users sits one level up.
 
 ## Status
 
