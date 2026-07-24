@@ -1,5 +1,4 @@
 import GameCard from "./GameCard";
-import { RAWG } from "./rawg";
 import { display, useT } from "./theme";
 import type { Game, ProfileSummary } from "./types";
 

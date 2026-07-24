@@ -1,5 +1,3 @@
-import { body, display } from "./theme";
-
 // ─── Global styles + fonts ────────────────────────────────────────────────────
 (() => {
   if (typeof document === "undefined" || document.getElementById("gdx-setup")) return;
