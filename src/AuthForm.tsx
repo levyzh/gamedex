@@ -73,10 +73,10 @@ export function AuthForm({ startMode = "signin" }: { startMode?: "signin" | "sig
       padding: "28px 26px", boxShadow: T.shadow, fontFamily: body,
     }}>
       {/* The same logo mark + wordmark as the app header, so the login
-          screen is unmistakably GameVault even with no header around it. */}
+          screen is unmistakably Gamedex even with no header around it. */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 13 }}>GV</div>
-        <span style={{ fontFamily: display, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: T.text }}>GameVault</span>
+        <div style={{ width: 28, height: 28, borderRadius: 7, background: T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 13 }}>gdx</div>
+        <span style={{ fontFamily: display, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: T.text }}>Gamedex</span>
       </div>
 
       <h2 style={{ margin: 0, fontFamily: display, fontWeight: 700, fontSize: 20, letterSpacing: "-0.02em", color: T.text }}>

@@ -1,4 +1,4 @@
-// All of GameVault's talk with Supabase (auth + database) lives here — the same
+// All of Gamedex's talk with Supabase (auth + database) lives here — the same
 // way rawg.ts holds every RAWG call. One place creates the client, so the URL
 // and key are written once and the rest of the app just imports `supabase`.
 import { createClient } from "@supabase/supabase-js";

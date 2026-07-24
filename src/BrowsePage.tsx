@@ -276,7 +276,7 @@ export default function BrowsePage({ onOpen }: { onOpen: (g: Game) => void }) {
       {/* Results */}
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, color: T.meta, fontSize: 14, padding: "50px 0" }}>
-          <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${T.border}`, borderTopColor: T.accent, animation: "gv-spin 0.8s linear infinite" }} />
+          <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${T.border}`, borderTopColor: T.accent, animation: "gdx-spin 0.8s linear infinite" }} />
           Loading…
         </div>
       ) : error ? (
