@@ -1,6 +1,6 @@
-import GameCard from "./GameCard";
-import { display, useT } from "./theme";
-import type { Game, ProfileSummary } from "./types";
+import GameCard from "../components/GameCard";
+import { display, useT } from "../lib/theme";
+import type { Game, ProfileSummary } from "../lib/types";
 
 // ─── Search results (games from RAWG + people from our own database) ───────────
 export default function SearchResults({ query, results, loading, error, onOpen, people, onOpenUser }: { query: string; results: Game[]; loading: boolean; error: string | null; onOpen: (g: Game) => void; people: ProfileSummary[]; onOpenUser: (userId: string) => void }) {

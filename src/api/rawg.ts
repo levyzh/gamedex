@@ -1,4 +1,4 @@
-import type { CategoryDef, Game, RawGame } from "./types";
+import type { CategoryDef, Game, RawGame } from "../lib/types";
 
 // Format a big number compactly: 1500 → "1.5K", 2_000_000 → "2M".
 export function fmt(n: number) {

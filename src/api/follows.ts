@@ -6,8 +6,8 @@
 // The API returns FollowStats and ProfileSummary in the app's exact shapes, so
 // there's no row-mapping here — res.json() is the value.
 
-import type { FollowStats, ProfileSummary } from "./types";
-import { API_URL, authHeader, optionalAuthHeader, throwForStatus } from "./api-client";
+import type { FollowStats, ProfileSummary } from "../lib/types";
+import { API_URL, authHeader, optionalAuthHeader, throwForStatus } from "./client";
 
 // This domain's status -> message wording.
 const ERRORS: Record<number, string> = {

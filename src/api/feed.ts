@@ -7,8 +7,8 @@
 // "Could not find a relationship between 'list' and 'profiles'" error — the API
 // joins profiles in Java, so no PostgREST relationship is involved.)
 
-import type { FeedItem } from "./types";
-import { API_URL, authHeader, throwForStatus } from "./api-client";
+import type { FeedItem } from "../lib/types";
+import { API_URL, authHeader, throwForStatus } from "./client";
 
 // This domain's status -> message wording.
 const ERRORS: Record<number, string> = {

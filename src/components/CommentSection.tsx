@@ -9,14 +9,14 @@
 // same pattern as saveEntry in App.tsx.
 
 import { useEffect, useState } from "react";
-import Icon from "./Icon";
-import { useT, display } from "./theme";
-import { timeAgo } from "./time";
+import Icon from "./ui/Icon";
+import { useT, display } from "../lib/theme";
+import { timeAgo } from "../lib/time";
 import {
   fetchComments, postComment, updateComment, deleteComment,
   likeComment, unlikeComment,
-} from "./comments";
-import type { Comment } from "./types";
+} from "../api/comments";
+import type { Comment } from "../lib/types";
 
 export default function CommentSection({
   gameId,

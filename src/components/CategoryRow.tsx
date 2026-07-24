@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import GameCard from "./GameCard";
-import ArrowBtn from "./ArrowBtn";
-import { display, useT } from "./theme";
-import type { Game } from "./types";
+import ArrowBtn from "./ui/ArrowBtn";
+import { display, useT } from "../lib/theme";
+import type { Game } from "../lib/types";
 
 export default function CategoryRow({ title, games, onOpen, onViewMore }: { title: string; games: Game[]; onOpen: (g: Game) => void; onViewMore: () => void }) {
   const T = useT();

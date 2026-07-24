@@ -1,8 +1,8 @@
 import { useState, useEffect, type CSSProperties } from "react";
-import { STATUSES, STATUS_COLOR } from "./constants";
-import { coverBg } from "./rawg";
-import { display, useT } from "./theme";
-import type { Entry, Game } from "./types";
+import { STATUSES, STATUS_COLOR } from "../lib/constants";
+import { coverBg } from "../api/rawg";
+import { display, useT } from "../lib/theme";
+import type { Entry, Game } from "../lib/types";
 
 // One row — status, score, and hours are editable right here and save on change.
 export default function ListRow({ index, game, entry, onOpen, onRemove, onSave }: { index: number; game: Game; entry: Entry; onOpen: (g: Game) => void; onRemove: (id: number) => void; onSave: (e: Entry) => void }) {

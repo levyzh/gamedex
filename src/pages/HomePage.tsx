@@ -1,7 +1,7 @@
-import WelcomeBanner from "./WelcomeBanner";
-import CategoryRow from "./CategoryRow";
-import { CATEGORY } from "./rawg";
-import type { Game } from "./types";
+import WelcomeBanner from "../components/WelcomeBanner";
+import CategoryRow from "../components/CategoryRow";
+import { CATEGORY } from "../api/rawg";
+import type { Game } from "../lib/types";
 
 // ─── Home page (MyAnimeList homepage layout) ───────────────────────────────────
 export default function HomePage({ popular, fresh, acclaimed, onOpen, onViewMore, showWelcome, onDismissWelcome }: { popular: Game[]; fresh: Game[]; acclaimed: Game[]; onOpen: (g: Game) => void; onViewMore: (key: string) => void; showWelcome: boolean; onDismissWelcome: () => void }) {

@@ -1,9 +1,9 @@
 import { useState, type CSSProperties } from "react";
-import SectionHeader from "./SectionHeader";
-import ListRow from "./ListRow";
-import { LIST_SORTERS } from "./constants";
-import { display, useT } from "./theme";
-import type { Entry, Game } from "./types";
+import SectionHeader from "../components/ui/SectionHeader";
+import ListRow from "../components/ListRow";
+import { LIST_SORTERS } from "../lib/constants";
+import { display, useT } from "../lib/theme";
+import type { Entry, Game } from "../lib/types";
 
 export default function ListPage({ listMap, onOpen, onRemove, onSave }: { listMap: Record<number, Entry>; onOpen: (g: Game) => void; onRemove: (id: number) => void; onSave: (e: Entry) => void }) {
   const T = useT();

@@ -1,5 +1,5 @@
 import Icon from "./Icon";
-import { useT } from "./theme";
+import { useT } from "../../lib/theme";
 
 // ─── Carousel row (4.5 cards, hover arrows, View More) ─────────────────────────
 export default function ArrowBtn({ dir, onClick }: { dir: "left" | "right"; onClick: () => void }) {

@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { useT } from "./theme";
+import { useT } from "../../lib/theme";
 
 export default function Info({ label, value, last = false }: { label: ReactNode; value: ReactNode; last?: boolean }) {
   const T = useT();

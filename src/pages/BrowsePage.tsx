@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import Icon from "./Icon";
-import GameCard from "./GameCard";
-import { BROWSE_SORTERS, FILTER_LABEL, FILTER_PARAM } from "./constants";
-import { RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
-import { display, useT } from "./theme";
-import type { FilterOption, Game } from "./types";
+import Icon from "../components/ui/Icon";
+import GameCard from "../components/GameCard";
+import { BROWSE_SORTERS, FILTER_LABEL, FILTER_PARAM } from "../lib/constants";
+import { RAWG, RAWG_KEY, mapGame, rawgGet } from "../api/rawg";
+import { display, useT } from "../lib/theme";
+import type { FilterOption, Game } from "../lib/types";
 
 export default function BrowsePage({ onOpen }: { onOpen: (g: Game) => void }) {
   const T = useT();

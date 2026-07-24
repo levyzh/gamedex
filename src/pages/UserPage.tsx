@@ -8,15 +8,15 @@
 // one. The editing CONTROLS live in SettingsPage.)
 
 import { useEffect, useState, type CSSProperties } from "react";
-import GameCard from "./GameCard";
-import AvatarCropper from "./AvatarCropper";
-import FollowListModal from "./FollowListModal";
-import { useT, display } from "./theme";
-import { fetchProfile, uploadAvatar } from "./profiles";
-import { fetchList } from "./api";
-import { fetchFollowStats, followUser, unfollowUser } from "./follows";
-import { STATUSES } from "./constants";
-import type { Entry, FollowStats, Game, Profile } from "./types";
+import GameCard from "../components/GameCard";
+import AvatarCropper from "../components/AvatarCropper";
+import FollowListModal from "../components/FollowListModal";
+import { useT, display } from "../lib/theme";
+import { fetchProfile, uploadAvatar } from "../api/profiles";
+import { fetchList } from "../api/list";
+import { fetchFollowStats, followUser, unfollowUser } from "../api/follows";
+import { STATUSES } from "../lib/constants";
+import type { Entry, FollowStats, Game, Profile } from "../lib/types";
 
 export default function UserPage({
   userId,

@@ -1,13 +1,13 @@
 import { useState, useEffect, type CSSProperties } from "react";
-import Icon from "./Icon";
-import SectionHeader from "./SectionHeader";
-import Info from "./Info";
-import Stat from "./Stat";
-import { STATUSES } from "./constants";
-import { RAWG, RAWG_KEY, coverBg, fmt, members } from "./rawg";
-import { display, useT } from "./theme";
-import type { Entry, Game } from "./types";
-import CommentSection from "./CommentSection";
+import Icon from "../components/ui/Icon";
+import SectionHeader from "../components/ui/SectionHeader";
+import Info from "../components/ui/Info";
+import Stat from "../components/ui/Stat";
+import { STATUSES } from "../lib/constants";
+import { RAWG, RAWG_KEY, coverBg, fmt, members } from "../api/rawg";
+import { display, useT } from "../lib/theme";
+import type { Entry, Game } from "../lib/types";
+import CommentSection from "../components/CommentSection";
 
 // ─── Detail page ───────────────────────────────────────────────────────────────
 // myUserId + onRequireLogin exist for the comment section: who is

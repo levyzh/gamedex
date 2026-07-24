@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { display, useT } from "./theme";
+import { display, useT } from "../lib/theme";
 
 // ─── Welcome banner (dismissible) ──────────────────────────────────────────────
 export default function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {

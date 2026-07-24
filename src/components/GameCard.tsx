@@ -1,8 +1,8 @@
 import { useState, type CSSProperties } from "react";
-import Icon from "./Icon";
-import { coverBg } from "./rawg";
-import { clamp2, useT } from "./theme";
-import type { Game } from "./types";
+import Icon from "./ui/Icon";
+import { coverBg } from "../api/rawg";
+import { clamp2, useT } from "../lib/theme";
+import type { Game } from "../lib/types";
 
 // ─── Card (main feed grid) ─────────────────────────────────────────────────────
 export default function GameCard({ game, onOpen }: { game: Game; onOpen: (g: Game) => void }) {
