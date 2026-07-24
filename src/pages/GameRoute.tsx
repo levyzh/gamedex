@@ -11,9 +11,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import DetailPage from "./DetailPage";
-import { RAWG, RAWG_KEY, mapGame } from "./rawg";
-import { useT } from "./theme";
-import type { Entry, Game } from "./types";
+import { RAWG, RAWG_KEY, mapGame } from "../api/rawg";
+import { useT } from "../lib/theme";
+import type { Entry, Game } from "../lib/types";
 
 export default function GameRoute({
   cachedGame,

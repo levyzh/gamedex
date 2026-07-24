@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { display, useT } from "./theme";
+import { display, useT } from "../../lib/theme";
 
 // ─── Section header ────────────────────────────────────────────────────────────
 export default function SectionHeader({ title, action = null }: { title: ReactNode; action?: ReactNode }) {

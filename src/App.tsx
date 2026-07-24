@@ -1,25 +1,25 @@
-import "./styles";
+import "./lib/styles";
 import { useState, useMemo, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
-import Icon from "./Icon";
-import SidebarPanel from "./SidebarPanel";
-import HomePage from "./HomePage";
-import BrowsePage from "./BrowsePage";
-import CategoryPage from "./CategoryPage";
-import GameRoute from "./GameRoute";
-import ListPage from "./ListPage";
-import SearchResults from "./SearchResults";
-import UserPage from "./UserPage";
-import SettingsPage from "./SettingsPage";
-import FeedSection from "./FeedSection";
-import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
-import { fetchList, postEntry, deleteEntry } from "./api";
-import { THEMES, ThemeCtx, useT, body, display } from "./theme";
-import type { Entry, Game, ProfileSummary } from "./types";
+import Icon from "./components/ui/Icon";
+import SidebarPanel from "./components/SidebarPanel";
+import HomePage from "./pages/HomePage";
+import BrowsePage from "./pages/BrowsePage";
+import CategoryPage from "./pages/CategoryPage";
+import GameRoute from "./pages/GameRoute";
+import ListPage from "./pages/ListPage";
+import SearchResults from "./pages/SearchResults";
+import UserPage from "./pages/UserPage";
+import SettingsPage from "./pages/SettingsPage";
+import FeedSection from "./components/FeedSection";
+import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "./api/rawg";
+import { fetchList, postEntry, deleteEntry } from "./api/list";
+import { THEMES, ThemeCtx, useT, body, display } from "./lib/theme";
+import type { Entry, Game, ProfileSummary } from "./lib/types";
 import type { Session } from "@supabase/supabase-js";
-import { watchSession } from "./auth";
-import { searchProfiles } from "./profiles";
-import { AuthForm } from "./AuthForm";
+import { watchSession } from "./api/auth";
+import { searchProfiles } from "./api/profiles";
+import { AuthForm } from "./components/AuthForm";
 
 // ─── Route wrappers ────────────────────────────────────────────────────────────
 // Small module-level components that read a URL parameter and hand it to

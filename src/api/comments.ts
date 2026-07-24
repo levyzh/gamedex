@@ -7,8 +7,8 @@
 // migrated domains. Only this domain's own bits stay here: the response shape,
 // the row mapping, the content check, and the error WORDING map.
 
-import type { Comment } from "./types";
-import { API_URL, authHeader, optionalAuthHeader, throwForStatus } from "./api-client";
+import type { Comment } from "../lib/types";
+import { API_URL, authHeader, optionalAuthHeader, throwForStatus } from "./client";
 
 // This domain's status -> message wording (passed to the shared throwForStatus).
 const ERRORS: Record<number, string> = {

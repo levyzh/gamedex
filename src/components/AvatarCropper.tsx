@@ -10,7 +10,7 @@
 // small square file — that one drawImage call IS the crop.
 
 import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { useT, display } from "./theme";
+import { useT, display } from "../lib/theme";
 
 // The on-screen window you position the photo in.
 const VIEW = 280;

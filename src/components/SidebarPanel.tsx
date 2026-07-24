@@ -1,6 +1,6 @@
 import RankRow from "./RankRow";
-import { display, useT } from "./theme";
-import type { Game } from "./types";
+import { display, useT } from "../lib/theme";
+import type { Game } from "../lib/types";
 
 export default function SidebarPanel({ title, games, onOpen, onMore }: { title: string; games: Game[]; onOpen: (g: Game) => void; onMore: () => void }) {
   const T = useT();

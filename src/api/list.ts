@@ -11,8 +11,8 @@
 //   WRITES -> PUT/DELETE /api/list/{gameId}      (authed; the API takes the
 //             owner from the JWT, never from us.)
 
-import type { Entry } from "./types";
-import { API_URL, authHeader, throwForStatus } from "./api-client";
+import type { Entry } from "../lib/types";
+import { API_URL, authHeader, throwForStatus } from "./client";
 
 // This domain's status -> message wording.
 const ERRORS: Record<number, string> = {

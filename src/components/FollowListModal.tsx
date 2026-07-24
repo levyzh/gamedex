@@ -4,9 +4,9 @@
 // follow graph from statistics into something you can WALK.
 
 import { useEffect, useState } from "react";
-import { useT, display } from "./theme";
-import { fetchFollowers, fetchFollowing } from "./follows";
-import type { ProfileSummary } from "./types";
+import { useT, display } from "../lib/theme";
+import { fetchFollowers, fetchFollowing } from "../api/follows";
+import type { ProfileSummary } from "../lib/types";
 
 export default function FollowListModal({
   userId,

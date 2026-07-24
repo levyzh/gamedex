@@ -15,8 +15,8 @@
 //             change your OWN row.)
 
 import { supabase } from "./supabase";
-import type { Profile, ProfileSummary } from "./types";
-import { API_URL, authHeader, throwForStatus } from "./api-client";
+import type { Profile, ProfileSummary } from "../lib/types";
+import { API_URL, authHeader, throwForStatus } from "./client";
 
 // This domain's status -> message wording. (updateProfile adds a couple of
 // per-call messages inline, because "username taken" vs a bad-format 400 read

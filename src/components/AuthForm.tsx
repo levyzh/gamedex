@@ -12,8 +12,8 @@
 // why dark/light mode works here without any extra code.
 
 import { useState, type CSSProperties } from "react";
-import { signIn, signUp } from "./auth";
-import { useT, display, body } from "./theme";
+import { signIn, signUp } from "../api/auth";
+import { useT, display, body } from "../lib/theme";
 
 // startMode lets whoever opens the form pick which job it starts on —
 // the header's "Sign up" button passes "signup", "Log in" passes

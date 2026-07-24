@@ -5,11 +5,11 @@
 // different files.
 
 import { useEffect, useState, type CSSProperties } from "react";
-import Icon from "./Icon";
-import { useT, display } from "./theme";
-import { fetchProfile, updateProfile } from "./profiles";
-import { changePassword, signOut } from "./auth";
-import type { Profile } from "./types";
+import Icon from "../components/ui/Icon";
+import { useT, display } from "../lib/theme";
+import { fetchProfile, updateProfile } from "../api/profiles";
+import { changePassword, signOut } from "../api/auth";
+import type { Profile } from "../lib/types";
 
 export default function SettingsPage({
   userId,

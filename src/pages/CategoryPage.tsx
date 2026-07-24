@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import Icon from "./Icon";
-import GameCard from "./GameCard";
-import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
-import { display, useT } from "./theme";
-import type { Game } from "./types";
+import Icon from "../components/ui/Icon";
+import GameCard from "../components/GameCard";
+import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "../api/rawg";
+import { display, useT } from "../lib/theme";
+import type { Game } from "../lib/types";
 
 // ─── Category page ("View More" → Browse-style grid with pagination) ───────────
 export default function CategoryPage({ categoryKey, onBack, onOpen }: { categoryKey: string; onBack: () => void; onOpen: (g: Game) => void }) {

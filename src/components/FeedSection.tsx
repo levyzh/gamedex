@@ -6,10 +6,10 @@
 // apologizing for itself.
 
 import { useEffect, useState } from "react";
-import { useT, display } from "./theme";
-import { timeAgo } from "./time";
-import { fetchFeed } from "./feed";
-import type { FeedItem, Game } from "./types";
+import { useT, display } from "../lib/theme";
+import { timeAgo } from "../lib/time";
+import { fetchFeed } from "../api/feed";
+import type { FeedItem, Game } from "../lib/types";
 
 export default function FeedSection({
   myUserId,

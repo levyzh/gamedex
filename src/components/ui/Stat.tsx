@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import Icon from "./Icon";
-import { display, useT } from "./theme";
+import { display, useT } from "../../lib/theme";
 
 export default function Stat({ icon = null, label, value }: { icon?: string | null; label: ReactNode; value: ReactNode }) {
   const T = useT();

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import Icon from "./Icon";
-import { coverBg, fmt, members } from "./rawg";
-import { clamp2, display, useT } from "./theme";
-import type { Game } from "./types";
+import Icon from "./ui/Icon";
+import { coverBg, fmt, members } from "../api/rawg";
+import { clamp2, display, useT } from "../lib/theme";
+import type { Game } from "../lib/types";
 
 // ─── Rank row (sidebar) ────────────────────────────────────────────────────────
 export default function RankRow({ rank, game, onOpen }: { rank: number; game: Game; onOpen: (g: Game) => void }) {
