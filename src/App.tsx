@@ -54,13 +54,13 @@ export default function App() {
   // The theme, remembered across visits. localStorage only holds
   // strings, so we store "dark"/"light"; anything else (including a
   // first visit, where the key doesn't exist) means the default: dark.
-  const [dark, setDark] = useState(() => localStorage.getItem("gv-theme") !== "light");
+  const [dark, setDark] = useState(() => localStorage.getItem("gdx-theme") !== "light");
   const T = dark ? THEMES.dark : THEMES.light;
 
   // Write the choice back whenever it changes, so the next visit opens
   // the way this one looked.
   useEffect(() => {
-    localStorage.setItem("gv-theme", dark ? "dark" : "light");
+    localStorage.setItem("gdx-theme", dark ? "dark" : "light");
   }, [dark]);
 
   // ROUTING NOTE: there used to be a `page` state variable here deciding
@@ -332,8 +332,8 @@ export default function App() {
         <header style={{ position: "sticky", top: 0, zIndex: 50, background: T.headerBg, backdropFilter: "blur(10px)", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", gap: 28 }}>
             <div onClick={goHome} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <div style={{ width: 28, height: 28, borderRadius: 7, background: T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 13 }}>GV</div>
-              <span style={{ fontFamily: display, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: T.text }}>GameVault</span>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 13 }}>gdx</div>
+              <span style={{ fontFamily: display, fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", color: T.text }}>Gamedex</span>
             </div>
 
             <nav style={{ display: "flex", alignItems: "center", gap: 22 }}>
@@ -443,7 +443,7 @@ export default function App() {
               <Route path="/" element={
                 loading ? (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 0", gap: 14 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${T.border}`, borderTopColor: T.accent, animation: "gv-spin 0.8s linear infinite" }} />
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${T.border}`, borderTopColor: T.accent, animation: "gdx-spin 0.8s linear infinite" }} />
                     <div style={{ color: T.meta, fontSize: 14 }}>Loading games…</div>
                   </div>
                 ) : error ? (
@@ -458,7 +458,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="gv-body" style={{ display: "flex", gap: 28, paddingTop: 22, alignItems: "flex-start" }}>
+                  <div className="gdx-body" style={{ display: "flex", gap: 28, paddingTop: 22, alignItems: "flex-start" }}>
                     <main style={{ flex: 1, minWidth: 0 }}>
                       <HomePage popular={feed.popular} fresh={feed.fresh} acclaimed={feed.acclaimed} onOpen={open} onViewMore={openCategory} showWelcome={showWelcome} onDismissWelcome={() => setShowWelcome(false)} />
                       {/* The social feed — only for logged-in users, and
@@ -469,7 +469,7 @@ export default function App() {
                         <FeedSection myUserId={session.user.id} onOpen={open} onOpenUser={openUser} />
                       )}
                     </main>
-                    <aside className="gv-rail" style={{ width: 300, flexShrink: 0, position: "sticky", top: 80 }}>
+                    <aside className="gdx-rail" style={{ width: 300, flexShrink: 0, position: "sticky", top: 80 }}>
                       <SidebarPanel title="Top Ranked" games={topRanked} onOpen={open} onMore={() => openCategory("topRated")} />
                       <SidebarPanel title="Most Popular" games={mostPopular} onOpen={open} onMore={() => openCategory("reviewed")} />
                     </aside>

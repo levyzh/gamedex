@@ -48,7 +48,7 @@ export default function SearchResults({ query, results, loading, error, onOpen, 
       )}
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, color: T.meta, fontSize: 14, padding: "40px 0" }}>
-          <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${T.border}`, borderTopColor: T.accent, animation: "gv-spin 0.8s linear infinite" }} />
+          <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${T.border}`, borderTopColor: T.accent, animation: "gdx-spin 0.8s linear infinite" }} />
           Searching RAWG…
         </div>
       ) : error ? (

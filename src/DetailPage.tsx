@@ -59,7 +59,7 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
         <Icon name="back" size={15} /> Back
       </button>
 
-      <div className="gv-detail" style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 28, alignItems: "start", paddingBottom: 40 }}>
+      <div className="gdx-detail" style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 28, alignItems: "start", paddingBottom: 40 }}>
         {/* Left column */}
         <div>
           <div style={{ aspectRatio: "3/4", ...coverBg(game), borderRadius: 12, border: `1px solid ${T.border}` }} />
