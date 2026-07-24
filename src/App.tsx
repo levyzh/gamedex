@@ -14,7 +14,7 @@ import SettingsPage from "./SettingsPage";
 import FeedSection from "./FeedSection";
 import { CATEGORY, RAWG, RAWG_KEY, mapGame, rawgGet } from "./rawg";
 import { fetchList, postEntry, deleteEntry } from "./api";
-import { THEMES, ThemeCtx, body, display } from "./theme";
+import { THEMES, ThemeCtx, useT, body, display } from "./theme";
 import type { Entry, Game, ProfileSummary } from "./types";
 import type { Session } from "@supabase/supabase-js";
 import { watchSession } from "./auth";
@@ -47,6 +47,38 @@ function CategoryRoute(props: { onBack: () => void; onOpen: (game: Game) => void
   const { key } = useParams();
   if (!key) return <Navigate to="/" replace />;
   return <CategoryPage categoryKey={key} onBack={props.onBack} onOpen={props.onOpen} />;
+}
+
+// A header nav button. Module-level for exactly the reason given above:
+// declared inside App it was a fresh component type on every render, so all
+// three buttons unmounted and remounted each time App re-rendered. It reads
+// theme, location and navigation from context itself, which leaves only the
+// search box's setter to hand down.
+function NavLink({ name, target, icon, setQuery }: {
+  name: string;
+  target: string;
+  icon: string;
+  setQuery: (value: string) => void;
+}) {
+  const T = useT();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // "Am I here?" means "does the URL match", not a state variable.
+  const active = pathname === target;
+  return (
+    <button
+      onClick={() => { setQuery(""); navigate(target); }}
+      style={{
+        display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
+        color: active ? T.text : T.meta, fontSize: 13.5, fontWeight: active ? 600 : 500,
+        cursor: "pointer", padding: "4px 2px", position: "relative",
+      }}
+    >
+      <Icon name={icon} size={16} color={active ? T.accent : T.meta} />
+      {name}
+      {active && <span style={{ position: "absolute", left: 0, right: 0, bottom: -15, height: 2, background: T.accent, borderRadius: 2 }} />}
+    </button>
+  );
 }
 
 // ─── App ───────────────────────────────────────────────────────────────────────
@@ -306,25 +338,6 @@ export default function App() {
   const topRanked = feed.topRated.slice(0, 5);   // highest user rating among popular games
   const mostPopular = feed.reviewed.slice(0, 5);  // most reviewed of all time
 
-  const NavLink = ({ name, target, icon }: { name: string; target: string; icon: string }) => {
-    // "Am I here?" now means "does the URL match", not a state variable.
-    const active = pathname === target;
-    return (
-      <button
-        onClick={() => { setQuery(""); navigate(target); }}
-        style={{
-          display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
-          color: active ? T.text : T.meta, fontSize: 13.5, fontWeight: active ? 600 : 500,
-          cursor: "pointer", padding: "4px 2px", position: "relative",
-        }}
-      >
-        <Icon name={icon} size={16} color={active ? T.accent : T.meta} />
-        {name}
-        {active && <span style={{ position: "absolute", left: 0, right: 0, bottom: -15, height: 2, background: T.accent, borderRadius: 2 }} />}
-      </button>
-    );
-  };
-
   return (
     <ThemeCtx.Provider value={T}>
       <div style={{ minHeight: "100vh", background: T.bg, fontFamily: body, color: T.text, colorScheme: T.scheme }}>
@@ -337,9 +350,9 @@ export default function App() {
             </div>
 
             <nav style={{ display: "flex", alignItems: "center", gap: 22 }}>
-              <NavLink name="Home" target="/" icon="home" />
-              <NavLink name="Browse" target="/browse" icon="grid" />
-              <NavLink name="My List" target="/list" icon="list" />
+              <NavLink name="Home" target="/" icon="home" setQuery={setQuery} />
+              <NavLink name="Browse" target="/browse" icon="grid" setQuery={setQuery} />
+              <NavLink name="My List" target="/list" icon="list" setQuery={setQuery} />
             </nav>
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>

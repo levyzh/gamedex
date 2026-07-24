@@ -33,12 +33,6 @@ export default defineConfig([
       // fetching pattern (setLoading(true) at the top of an effect), not a
       // localized bug — changing it is a data-layer project, not a lint fix.
       'react-hooks/set-state-in-effect': 'warn',
-
-      // 3 hits, all NavLink in App.tsx. Genuine perf bug: NavLink is declared
-      // inside App, so it is a new component type on every render and the nav
-      // remounts each time. Fix is to hoist it out and pass its closure deps
-      // as props.
-      'react-hooks/static-components': 'warn',
     },
   },
 ])
