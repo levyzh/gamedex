@@ -59,10 +59,10 @@ export default function DetailPage({ game, entry, games, onBack, onSave, onRemov
         <Icon name="back" size={15} /> Back
       </button>
 
-      <div className="gdx-detail" style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 28, alignItems: "start", paddingBottom: 40 }}>
+      <div className="gdx-detail" style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 28, alignItems: "start", paddingBottom: 40 }}>
         {/* Left column */}
         <div>
-          <div style={{ aspectRatio: "3/4", ...coverBg(game), borderRadius: 12, border: `1px solid ${T.border}` }} />
+          <div style={{ aspectRatio: "16/9", ...coverBg(game), borderRadius: 12, border: `1px solid ${T.border}` }} />
 
           <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, marginTop: 16, padding: 16 }}>
             <div style={{ fontFamily: display, fontWeight: 600, fontSize: 13, color: T.text, marginBottom: 12 }}>Add to my list</div>

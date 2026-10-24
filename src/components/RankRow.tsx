@@ -13,7 +13,7 @@ export default function RankRow({ rank, game, onOpen }: { rank: number; game: Ga
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        position: "relative", display: "grid", gridTemplateColumns: "26px 40px 1fr",
+        position: "relative", display: "grid", gridTemplateColumns: "26px 64px 1fr",
         gap: 10, padding: "10px 14px", alignItems: "center",
         borderTop: `1px solid ${T.border}`, background: hover ? T.cardH : "transparent",
         transition: "background 0.12s",
@@ -24,7 +24,7 @@ export default function RankRow({ rank, game, onOpen }: { rank: number; game: Ga
         fontVariantNumeric: "tabular-nums",
         color: rank <= 3 ? T.accent : T.rank,
       }}>{rank}</span>
-      <div onClick={() => onOpen(game)} style={{ width: 40, height: 56, ...coverBg(game), borderRadius: 5, cursor: "pointer", flexShrink: 0, border: `1px solid ${T.border}`, filter: game.adult ? "blur(7px)" : "none", overflow: "hidden" }} />
+      <div onClick={() => onOpen(game)} style={{ width: 64, height: 36, ...coverBg(game), borderRadius: 5, cursor: "pointer", flexShrink: 0, border: `1px solid ${T.border}`, filter: game.adult ? "blur(7px)" : "none", overflow: "hidden" }} />
       <div style={{ minWidth: 0, paddingRight: 26 }}>
         <div onClick={() => onOpen(game)} style={{ color: T.text, fontWeight: 500, fontSize: 12.5, lineHeight: 1.3, cursor: "pointer", ...clamp2 }}>{game.adult ? "Hidden — adult content" : game.title}</div>
         <div style={{ color: T.meta, fontSize: 11, marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>

@@ -27,7 +27,7 @@ export default function GameCard({ game, onOpen }: { game: Game; onOpen: (g: Gam
       transition: "transform 0.14s",
     },
     card: {
-      aspectRatio: "3/4",
+      aspectRatio: "16/9",
       borderRadius: 10,
       background: T.cardH,
       border: `1px solid ${T.border}`,

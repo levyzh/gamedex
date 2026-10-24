@@ -387,7 +387,7 @@ export default function UserPage({
           {isMyOwnPage ? "Nothing here yet — find a game in Browse and add it." : "Nothing here yet."}
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 18 }}>
           {sortedList.map(entry => (
             <div key={entry.gameId}>
               <GameCard game={entry.game} onOpen={onOpen} />

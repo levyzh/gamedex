@@ -41,7 +41,7 @@ export default function CategoryRow({ title, games, onOpen, onViewMore }: { titl
         <div ref={ref} onScroll={updateArrows} className="gdx-hscroll"
           style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
           {games.map(game => (
-            <div key={game.id} style={{ flex: "0 0 calc((100% - 70px) / 5.5)" }}>
+            <div key={game.id} style={{ flex: "0 0 calc((100% - 56px) / 4.3)" }}>
               <GameCard game={game} onOpen={onOpen} />
             </div>
           ))}

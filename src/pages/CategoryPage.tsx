@@ -86,7 +86,7 @@ export default function CategoryPage({ categoryKey, onBack, onOpen }: { category
       ) : (
         <>
           <div style={{ fontSize: 12, color: T.metaDim, margin: "16px 0 14px" }}>{games.length} loaded</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 20 }}>
             {games.map(game => <GameCard key={game.id} game={game} onOpen={onOpen} />)}
           </div>
           {hasNext && (

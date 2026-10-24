@@ -161,14 +161,25 @@ export const CATEGORY: Record<string, CategoryDef> = {
   },
 };
 
+// RAWG's CDN serves resized copies at /media/resize/<width>/-/...; full-size
+// screenshots are often 1–3 MB. Set to false if covers ever come back blank.
+const USE_RESIZED_COVERS = true;
+const COVER_WIDTH = 640;
+
+function sizedCover(url: string) {
+  if (!USE_RESIZED_COVERS || !url.includes("media.rawg.io/media/") || url.includes("/media/resize/") || url.includes("/media/crop/")) return url;
+  return url.replace("/media/", `/media/resize/${COVER_WIDTH}/-/`);
+}
+
 // A game's cover is either a real image URL or null. Return the matching CSS
 // background either way — a gradient fallback when there's no image.
 export function coverBg(game: Game) {
   if (game.cover) {
     return {
-      backgroundImage: `url(${game.cover})`,
+      backgroundImage: `url(${sizedCover(game.cover)})`,
       backgroundSize: "cover",
       backgroundPosition: "center",
+      backgroundRepeat: "no-repeat", // default "repeat" shows a sliver of the image's top edge at fractional sizes
     };
   }
   return { background: FALLBACK_COVER };
