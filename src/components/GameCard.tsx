@@ -28,7 +28,7 @@ export default function GameCard({ game, onOpen }: { game: Game; onOpen: (g: Gam
     },
     card: {
       aspectRatio: "16/9",
-      borderRadius: 10,
+      borderRadius: 4,
       background: T.cardH,
       border: `1px solid ${T.border}`,
       transform: hover ? "translateY(-3px)" : "none",

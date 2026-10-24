@@ -55,7 +55,7 @@ export default function SearchResults({ query, results, loading, error, onOpen, 
       ) : results.length ? (
         <>
           <div style={{ fontSize: 12, color: T.metaDim, margin: "14px 0" }}>{results.length} {results.length === 1 ? "result" : "results"}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 20, paddingBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: "20px 8px", paddingBottom: 20 }}>
             {results.map(game => <GameCard key={game.id} game={game} onOpen={onOpen} />)}
           </div>
         </>

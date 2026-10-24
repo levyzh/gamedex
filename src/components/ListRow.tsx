@@ -34,7 +34,7 @@ export default function ListRow({ index, game, entry, onOpen, onRemove, onSave }
       <td style={{ ...cell, textAlign: "center", color: T.metaDim, fontFamily: display, fontVariantNumeric: "tabular-nums" }}>{index}</td>
       <td style={cell}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div onClick={() => onOpen(game)} style={{ width: 56, height: 32, ...coverBg(game), borderRadius: 5, cursor: "pointer", border: `1px solid ${T.border}`, flexShrink: 0 }} />
+          <div onClick={() => onOpen(game)} style={{ width: 56, height: 32, ...coverBg(game), borderRadius: 2, cursor: "pointer", border: `1px solid ${T.border}`, flexShrink: 0 }} />
           <div onClick={() => onOpen(game)} style={{ cursor: "pointer" }}>
             <div style={{ fontWeight: 500, color: T.link }}>{game.title}</div>
             <div style={{ color: T.metaDim, fontSize: 11.5 }}>{game.genre[0]} · {game.year}</div>

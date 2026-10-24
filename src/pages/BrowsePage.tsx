@@ -286,7 +286,7 @@ export default function BrowsePage({ onOpen }: { onOpen: (g: Game) => void }) {
           <div style={{ fontSize: 12, color: T.metaDim, margin: "22px 0 14px" }}>
             {games.length} loaded{selected.length ? ` · ${selected.map(filter => filter.name).join(", ")}` : ""}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: "20px 8px" }}>
             {games.map(game => <GameCard key={game.id} game={game} onOpen={onOpen} />)}
           </div>
           {hasNext && (
