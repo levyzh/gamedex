@@ -24,9 +24,14 @@ export const ThemeCtx = createContext(THEMES.dark);
 
 export const useT = () => useContext(ThemeCtx);
 
-export const display = "'Space Grotesk', sans-serif";
+// SF Pro on Apple devices (it can't be shipped), Inter everywhere else.
+// Inter must stay ahead of Segoe UI or Windows picks Segoe.
+const APPLE_FONT_STACK =
+  '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif';
 
-export const body = "'Inter', sans-serif";
+export const display = APPLE_FONT_STACK;
+
+export const body = APPLE_FONT_STACK;
 
 export const clamp2: CSSProperties = {
   display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
