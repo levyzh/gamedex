@@ -21,7 +21,6 @@ export default function GameCard({ game, onOpen }: { game: Game; onOpen: (g: Gam
     onOpen(game);
   };
 
-  // All styling lives here, named, so the JSX below reads as pure structure.
   const styles: Record<string, CSSProperties> = {
     wrapper: {
       cursor: "pointer",
@@ -96,17 +95,14 @@ export default function GameCard({ game, onOpen }: { game: Game; onOpen: (g: Gam
       style={styles.wrapper}
     >
       <div style={styles.card}>
-        {/* Cover image — blurred while an adult game is hidden */}
         <div style={styles.cover} />
 
-        {/* Score badge — hidden while the cover is blurred */}
         {!blurred && (
           <div style={styles.scoreBadge}>
-            <Icon name="star" size={11} color="#4F46E5" /> {game.score.toFixed(2)}
+            <Icon name="star" size={11} color="#0071E3" /> {game.score.toFixed(2)}
           </div>
         )}
 
-        {/* Adult-content warning overlay */}
         {blurred && (
           <div style={styles.adultOverlay}>
             <div style={{ fontSize: 24, lineHeight: 1 }}>🔞</div>

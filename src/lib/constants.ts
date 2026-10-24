@@ -3,7 +3,7 @@ import type { ListItem } from "./types";
 export const STATUSES = ["Playing", "Completed", "On Hold", "Dropped", "Plan to Play"];
 
 export const STATUS_COLOR: Record<string, string> = {
-  Playing: "#6E8BFF",
+  Playing: "#0A84FF",
   Completed: "#22C55E",
   "On Hold": "#F59E0B",
   Dropped: "#F87171",
